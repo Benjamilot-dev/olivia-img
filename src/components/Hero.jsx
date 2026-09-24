@@ -34,7 +34,7 @@ export default function Hero({ onOpenUpload, totalPins, totalFolders, totalLikes
           {/* Badge */}
           <div className="hero-badge-tag">
             <Sparkles size={12} />
-            <span>Colección Oficial &middot; Cloudinary Folders</span>
+            <span>Colección Oficial &middot; Galería Exclusiva</span>
           </div>
 
           {/* Main Title */}
@@ -44,8 +44,8 @@ export default function Hero({ onOpenUpload, totalPins, totalFolders, totalLikes
 
           {/* Subtitle */}
           <p className="hero-subtitle">
-            Explora el universo de Olivia: poses reales, siestas majestuosas, aventuras en el jardín y travesuras.
-            Sube a <strong>Cloudinary</strong> y sincroniza en tiempo real con <strong>Firebase</strong>.
+            Explora el universo de Olivia: poses reales, siestas majestuosas, aventuras en el jardín y momentos inolvidables.
+            Comparte tus fotos favoritas y disfruta de la comunidad en tiempo real.
           </p>
 
           {/* Action buttons */}
@@ -55,14 +55,14 @@ export default function Hero({ onOpenUpload, totalPins, totalFolders, totalLikes
               onClick={onOpenUpload}
             >
               <Upload size={17} />
-              <span>Subir Foto a Cloudinary</span>
+              <span>Publicar Foto</span>
             </button>
             <a
               href="#masonry-grid"
               className="btn-secondary hero-btn-sub"
             >
               <FolderHeart size={17} color="#f59e0b" />
-              <span>Explorar Tableros</span>
+              <span>Explorar Álbumes</span>
             </a>
           </div>
 
@@ -74,7 +74,7 @@ export default function Hero({ onOpenUpload, totalPins, totalFolders, totalLikes
             </div>
             <div className="hero-stat-item">
               <FolderHeart size={15} color="#8b5cf6" />
-              <span><strong className="hero-stat-num">{totalFolders}</strong> Carpetas</span>
+              <span><strong className="hero-stat-num">{totalFolders}</strong> Álbumes</span>
             </div>
             <div className="hero-stat-item">
               <Heart size={15} color="#f43f5e" fill="#f43f5e" />
@@ -82,7 +82,7 @@ export default function Hero({ onOpenUpload, totalPins, totalFolders, totalLikes
             </div>
             <div className="hero-stat-item">
               <ShieldCheck size={15} color="#10b981" />
-              <span>Sync <strong>Firebase</strong></span>
+              <span>Sincronizado <strong>En Vivo</strong></span>
             </div>
           </div>
         </div>

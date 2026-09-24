@@ -24,7 +24,7 @@ export default function Navbar({
         <div className="nav-brand-text">
           <span className="nav-brand-title">Olivia the Cat!</span>
           <span className="nav-brand-badge">
-            <Sparkles size={10} /> Cloudinary & Firebase
+            <Sparkles size={10} /> Galería Oficial
           </span>
         </div>
       </div>
@@ -59,19 +59,19 @@ export default function Navbar({
         <button
           className="btn-primary-pinterest nav-upload-desktop"
           onClick={onOpenUpload}
-          title="Subir foto a Cloudinary"
+          title="Publicar Nueva Foto"
           id="btn-upload-pin"
         >
           <Plus size={17} strokeWidth={2.5} />
           <span className="nav-upload-text">Crear Pin</span>
         </button>
 
-        {/* Cloudinary & Firebase Settings - ADMIN ONLY */}
+        {/* Admin Settings - ADMIN ONLY */}
         {isAdmin && (
           <button
             className="btn-icon"
             onClick={onOpenSettings}
-            title="Ajustes de Administrador (Cloudinary & Firebase)"
+            title="Panel de Administración"
             id="btn-settings"
             style={{
               borderColor: 'rgba(245, 158, 11, 0.45)',

@@ -10,7 +10,8 @@ import SettingsModal from './components/SettingsModal';
 import PendingApprovalModal from './components/PendingApprovalModal';
 import MobileBottomNav from './components/MobileBottomNav';
 import Toast from './components/Toast';
-import { Lock, LogIn, Sparkles } from 'lucide-react';
+import ConfirmModal from './components/ConfirmModal';
+import { Lock, LogIn, Sparkles, Trash2, Folder as FolderIcon } from 'lucide-react';
 
 import { INITIAL_PINS } from './data/initialPins';
 import { DEFAULT_FOLDERS } from './services/cloudinary';
@@ -21,6 +22,46 @@ import { ref, onValue, set, update, remove } from 'firebase/database';
 
 export default function App() {
   const searchInputRef = useRef(null);
+
+  // Confirm Modal state
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Confirmar',
+    cancelText: 'Cancelar',
+    variant: 'danger',
+    itemPreview: null,
+    options: null,
+    onConfirm: () => {}
+  });
+
+  const openConfirm = ({
+    title,
+    message,
+    confirmText = 'Confirmar',
+    cancelText = 'Cancelar',
+    variant = 'danger',
+    itemPreview = null,
+    options = null,
+    onConfirm
+  }) => {
+    setConfirmModal({
+      isOpen: true,
+      title,
+      message,
+      confirmText,
+      cancelText,
+      variant,
+      itemPreview,
+      options,
+      onConfirm: onConfirm || (() => {})
+    });
+  };
+
+  const closeConfirm = () => {
+    setConfirmModal((prev) => ({ ...prev, isOpen: false }));
+  };
 
   // Pins state
   const [pins, setPins] = useState(() => {
@@ -219,7 +260,7 @@ export default function App() {
   const handleOpenUpload = () => {
     if (!user) {
       handleRequireAuth('upload');
-      addToast('Inicia sesión con Google para subir fotos a Cloudinary', 'info');
+      addToast('Inicia sesión con Google para publicar fotos en la galería', 'info');
       return;
     }
     if (!isApproved) {
@@ -302,14 +343,14 @@ export default function App() {
       set(newPinRef, newPin).catch(() => {});
     } catch {}
 
-    addToast('¡Pin subido a Cloudinary y publicado con éxito! 🐱');
+    addToast('¡Pin publicado con éxito en la galería oficial! 🐱');
   };
 
   // Permission guarded Folder creation handler
   const handleAddFolder = (folderName) => {
     if (!user) {
       handleRequireAuth('folder');
-      addToast('Inicia sesión con Google para crear carpetas', 'info');
+      addToast('Inicia sesión con Google para crear álbumes', 'info');
       return;
     }
     if (!isApproved) {
@@ -328,7 +369,7 @@ export default function App() {
     };
     setFolders((prev) => [...prev, newFolder]);
     setActiveFolder(slug);
-    addToast(`Carpeta "${folderName}" creada en Cloudinary`);
+    addToast(`Álbum "${folderName}" creado con éxito ✨`);
   };
 
   const handleAddComment = (pinId, commentObj) => {
@@ -356,27 +397,45 @@ export default function App() {
   };
 
   // =========================================================================
-  // ADMIN DELETION & CONTENT MANAGEMENT ACTIONS
+  // ADMIN DELETION & CONTENT MANAGEMENT ACTIONS (LUXURY MODALS)
   // =========================================================================
 
-  // 1. Delete individual pin
+  // 1. Delete individual pin (Admin or author of the pin)
   const handleDeletePin = (pin) => {
-    if (!isAdmin) {
-      addToast('Solo el Administrador puede eliminar pines', 'error');
+    const isOwner = user && (
+      (pin.authorUid && pin.authorUid === user.uid) ||
+      (pin.author?.uid && pin.author.uid === user.uid) ||
+      (pin.authorEmail && pin.authorEmail === user.email)
+    );
+
+    if (!isAdmin && !isOwner) {
+      addToast('Solo el Administrador o el autor de la foto pueden eliminar este pin', 'error');
       return;
     }
-    const confirmed = window.confirm(`¿Estás seguro de que deseas eliminar permanentemente el pin "${pin.title}"?`);
-    if (!confirmed) return;
 
-    try {
-      remove(ref(database, `pins/${pin.id}`)).catch((err) => console.warn(err));
-    } catch {}
+    openConfirm({
+      title: isOwner && !isAdmin ? '¿Eliminar tu Pin definitivamente?' : '¿Eliminar este Pin definitivamente?',
+      message: `El pin "${pin.title}" será removido de forma permanente de la galería y de la base de datos.`,
+      confirmText: 'Sí, eliminar Pin',
+      cancelText: 'Cancelar',
+      variant: 'danger',
+      itemPreview: {
+        image: pin.imageUrl,
+        title: pin.title,
+        subtitle: `Álbum: ${(pin.cloudinaryFolder || 'General').split('/').pop()}`
+      },
+      onConfirm: () => {
+        try {
+          remove(ref(database, `pins/${pin.id}`)).catch((err) => console.warn(err));
+        } catch {}
 
-    setPins((prev) => prev.filter((p) => p.id !== pin.id));
-    if (selectedPin && selectedPin.id === pin.id) {
-      setSelectedPin(null);
-    }
-    addToast(`Pin "${pin.title}" eliminado de la base de datos 🗑️`);
+        setPins((prev) => prev.filter((p) => p.id !== pin.id));
+        if (selectedPin && selectedPin.id === pin.id) {
+          setSelectedPin(null);
+        }
+        addToast(`Pin "${pin.title}" eliminado de la base de datos 🗑️`);
+      }
+    });
   };
 
   // 2. Delete all pins or all pins in a specific folder
@@ -392,28 +451,46 @@ export default function App() {
         addToast('No hay fotos en esta carpeta para eliminar', 'info');
         return;
       }
-      const confirmed = window.confirm(`¿Deseas eliminar permanentemente TODAS las fotos de esta carpeta (${folderPins.length} fotos)?`);
-      if (!confirmed) return;
 
-      folderPins.forEach((p) => {
-        try {
-          remove(ref(database, `pins/${p.id}`)).catch(() => {});
-        } catch {}
+      openConfirm({
+        title: '¿Vaciar fotos de esta carpeta?',
+        message: `Se eliminarán permanentemente todas las ${folderPins.length} fotos asociadas a esta carpeta. Esta acción no se puede deshacer.`,
+        confirmText: `Eliminar ${folderPins.length} fotos`,
+        cancelText: 'Cancelar',
+        variant: 'danger',
+        itemPreview: {
+          icon: 'folder',
+          title: `Carpeta: ${folderSlug}`,
+          subtitle: `${folderPins.length} fotos serán borradas`
+        },
+        onConfirm: () => {
+          folderPins.forEach((p) => {
+            try {
+              remove(ref(database, `pins/${p.id}`)).catch(() => {});
+            } catch {}
+          });
+
+          setPins((prev) => prev.filter((p) => p.cloudinaryFolder !== folderSlug));
+          addToast(`Se eliminaron ${folderPins.length} fotos de la carpeta 🗑️`);
+        }
       });
-
-      setPins((prev) => prev.filter((p) => p.cloudinaryFolder !== folderSlug));
-      addToast(`Se eliminaron ${folderPins.length} fotos de la carpeta 🗑️`);
     } else {
-      const confirmed = window.confirm(`⚠️ ADVERTENCIA: ¿Estás seguro de que deseas eliminar TODOS los pines (${pins.length}) de la galería?`);
-      if (!confirmed) return;
+      openConfirm({
+        title: '¿Eliminar TODOS los Pines de la Galería?',
+        message: `⚠️ ADVERTENCIA: Estás a punto de borrar definitivamente las ${pins.length} fotos de toda la galería de Olivia.`,
+        confirmText: 'Sí, vaciar galería',
+        cancelText: 'Cancelar',
+        variant: 'danger',
+        onConfirm: () => {
+          try {
+            remove(ref(database, 'pins')).catch(() => {});
+          } catch {}
 
-      try {
-        remove(ref(database, 'pins')).catch(() => {});
-      } catch {}
-
-      setPins([]);
-      if (selectedPin) setSelectedPin(null);
-      addToast('Todos los pines han sido eliminados de la galería 🗑️');
+          setPins([]);
+          if (selectedPin) setSelectedPin(null);
+          addToast('Todos los pines han sido eliminados de la galería 🗑️');
+        }
+      });
     }
   };
 
@@ -423,17 +500,24 @@ export default function App() {
       addToast('Solo el Administrador puede restablecer pines', 'error');
       return;
     }
-    const confirmed = window.confirm('¿Deseas restablecer los pines y fotos oficiales de Olivia the Cat?');
-    if (!confirmed) return;
 
-    try {
-      INITIAL_PINS.forEach((ip) => {
-        set(ref(database, `pins/${ip.id}`), ip).catch(() => {});
-      });
-    } catch {}
+    openConfirm({
+      title: '¿Restablecer Pines Oficiales?',
+      message: 'Se volverán a cargar todas las fotos oficiales y retratos ilustrados de Olivia the Cat en la base de datos.',
+      confirmText: 'Restablecer fotos',
+      cancelText: 'Cancelar',
+      variant: 'reset',
+      onConfirm: () => {
+        try {
+          INITIAL_PINS.forEach((ip) => {
+            set(ref(database, `pins/${ip.id}`), ip).catch(() => {});
+          });
+        } catch {}
 
-    setPins(INITIAL_PINS);
-    addToast('Pines oficiales de Olivia restablecidos ✨');
+        setPins(INITIAL_PINS);
+        addToast('Pines oficiales de Olivia restablecidos ✨');
+      }
+    });
   };
 
   // 4. Delete single folder
@@ -445,34 +529,73 @@ export default function App() {
     if (folder.id === 'all') return;
 
     const folderPins = pins.filter((p) => p.cloudinaryFolder === folder.slug);
-    const confirmed = window.confirm(`¿Estás seguro de que deseas eliminar la carpeta "${folder.name}"?`);
-    if (!confirmed) return;
 
-    if (folderPins.length > 0) {
-      const deletePhotos = window.confirm(`Esta carpeta contiene ${folderPins.length} fotos. ¿Deseas eliminar también las fotos? Haz clic en "Aceptar" para borrarlas, o "Cancelar" para conservarlas en la galería general.`);
-      if (deletePhotos) {
-        folderPins.forEach((p) => {
-          try {
-            remove(ref(database, `pins/${p.id}`)).catch(() => {});
-          } catch {}
-        });
-        setPins((prev) => prev.filter((p) => p.cloudinaryFolder !== folder.slug));
-      } else {
-        // Reassign to root/general
-        folderPins.forEach((p) => {
-          try {
-            update(ref(database, `pins/${p.id}`), { cloudinaryFolder: 'olivia-cat/portraits' }).catch(() => {});
-          } catch {}
-        });
-        setPins((prev) => prev.map((p) => p.cloudinaryFolder === folder.slug ? { ...p, cloudinaryFolder: 'olivia-cat/portraits' } : p));
-      }
+    if (folderPins.length === 0) {
+      openConfirm({
+        title: `¿Eliminar el álbum "${folder.name}"?`,
+        message: 'Este álbum personalizado será eliminado de la barra de navegación.',
+        confirmText: 'Eliminar álbum',
+        cancelText: 'Cancelar',
+        variant: 'danger',
+        itemPreview: {
+          icon: 'folder',
+          title: folder.name,
+          subtitle: '0 fotos asignadas'
+        },
+        onConfirm: () => {
+          setFolders((prev) => prev.filter((f) => f.id !== folder.id));
+          if (activeFolder === folder.slug) {
+            setActiveFolder('');
+          }
+          addToast(`Carpeta "${folder.name}" eliminada 📁🗑️`);
+        }
+      });
+    } else {
+      openConfirm({
+        title: `¿Eliminar la carpeta "${folder.name}"?`,
+        message: `Esta carpeta contiene ${folderPins.length} fotos. Selecciona cómo deseas proceder:`,
+        cancelText: 'Cancelar',
+        itemPreview: {
+          icon: 'folder',
+          title: folder.name,
+          subtitle: `${folderPins.length} fotos en esta carpeta`
+        },
+        options: [
+          {
+            label: `Eliminar carpeta y sus ${folderPins.length} fotos`,
+            variant: 'danger',
+            icon: <Trash2 size={16} />,
+            onClick: () => {
+              folderPins.forEach((p) => {
+                try {
+                  remove(ref(database, `pins/${p.id}`)).catch(() => {});
+                } catch {}
+              });
+              setPins((prev) => prev.filter((p) => p.cloudinaryFolder !== folder.slug));
+              setFolders((prev) => prev.filter((f) => f.id !== folder.id));
+              if (activeFolder === folder.slug) setActiveFolder('');
+              addToast(`Carpeta "${folder.name}" y sus ${folderPins.length} fotos eliminadas`);
+            }
+          },
+          {
+            label: 'Conservar fotos (mover a Galería General)',
+            variant: 'secondary',
+            icon: <FolderIcon size={16} />,
+            onClick: () => {
+              folderPins.forEach((p) => {
+                try {
+                  update(ref(database, `pins/${p.id}`), { cloudinaryFolder: 'olivia-cat/portraits' }).catch(() => {});
+                } catch {}
+              });
+              setPins((prev) => prev.map((p) => p.cloudinaryFolder === folder.slug ? { ...p, cloudinaryFolder: 'olivia-cat/portraits' } : p));
+              setFolders((prev) => prev.filter((f) => f.id !== folder.id));
+              if (activeFolder === folder.slug) setActiveFolder('');
+              addToast(`Carpeta "${folder.name}" eliminada (fotos conservadas en galería)`);
+            }
+          }
+        ]
+      });
     }
-
-    setFolders((prev) => prev.filter((f) => f.id !== folder.id));
-    if (activeFolder === folder.slug) {
-      setActiveFolder('');
-    }
-    addToast(`Carpeta "${folder.name}" eliminada 📁🗑️`);
   };
 
   // 5. Delete all custom folders
@@ -481,18 +604,31 @@ export default function App() {
       addToast('Solo el Administrador puede restablecer carpetas', 'error');
       return;
     }
-    const confirmed = window.confirm('¿Deseas eliminar todas las carpetas creadas y volver a las predeterminadas?');
-    if (!confirmed) return;
 
-    setFolders(DEFAULT_FOLDERS);
-    setActiveFolder('');
-    addToast('Carpetas restablecidas a las predeterminadas 📁');
+    openConfirm({
+      title: '¿Restablecer Carpetas Predeterminadas?',
+      message: 'Se eliminarán todas las carpetas personalizadas creadas y se restaurarán las categorías originales de Olivia.',
+      confirmText: 'Restablecer carpetas',
+      cancelText: 'Cancelar',
+      variant: 'warning',
+      onConfirm: () => {
+        setFolders(DEFAULT_FOLDERS);
+        setActiveFolder('');
+        addToast('Carpetas restablecidas a las predeterminadas 📁');
+      }
+    });
   };
 
-  // 6. Toggle Pin Visibility (Public / Members Only)
+  // 6. Toggle Pin Visibility (Public / Private)
   const handleTogglePinVisibility = (pin) => {
-    if (!isAdmin) {
-      addToast('Solo el Administrador puede cambiar la visibilidad de los pines', 'error');
+    const isOwner = user && (
+      (pin.authorUid && pin.authorUid === user.uid) ||
+      (pin.author?.uid && pin.author.uid === user.uid) ||
+      (pin.authorEmail && pin.authorEmail === user.email)
+    );
+
+    if (!isAdmin && !isOwner) {
+      addToast('Solo el Administrador o el autor de la foto pueden cambiar su visibilidad', 'error');
       return;
     }
     const currentVis = pin.visibility || 'public';
@@ -508,7 +644,9 @@ export default function App() {
       setSelectedPin((prev) => ({ ...prev, visibility: newVisibility }));
     }
 
-    addToast(`Pin "${pin.title}" ahora es ${newVisibility === 'public' ? 'Público para todos 🌍' : 'Privado (solo para registrados) 🔒'}`);
+    addToast(
+      `Pin "${pin.title}" ahora es ${newVisibility === 'public' ? 'Público para todos 🌍' : 'Privado (visible solo para ti y el Admin) 🔒'}`
+    );
   };
 
   const handleLogout = async () => {
@@ -545,9 +683,25 @@ export default function App() {
   // Filter Pins based on activeFolder, searchTerm, and User Authentication Visibility
   const filteredPins = useMemo(() => {
     return pins.filter((pin) => {
-      // Visibility rule: Unregistered / unauthenticated visitors only see public photos
-      if (!user && pin.visibility === 'members') {
-        return false;
+      const isPublic = !pin.visibility || pin.visibility === 'public';
+
+      // Privacy Rules:
+      // 1. Admin: sees ALL public AND ALL private photos of everyone
+      // 2. Regular user: sees all public photos + THEIR OWN private photos
+      // 3. Unregistered visitor: sees ONLY public photos
+      if (!isPublic) {
+        if (!user) {
+          return false;
+        }
+        if (!isAdmin) {
+          const isOwner =
+            (pin.authorUid && pin.authorUid === user.uid) ||
+            (pin.author?.uid && pin.author.uid === user.uid) ||
+            (pin.authorEmail && pin.authorEmail === user.email);
+          if (!isOwner) {
+            return false;
+          }
+        }
       }
 
       if (activeFolder && pin.cloudinaryFolder !== activeFolder) {
@@ -563,12 +717,24 @@ export default function App() {
       }
       return true;
     });
-  }, [pins, activeFolder, searchTerm, user]);
+  }, [pins, activeFolder, searchTerm, user, isAdmin]);
 
-  // Members-only count
-  const membersOnlyPinsCount = useMemo(() => {
+  // Total private pins in system
+  const totalPrivatePinsCount = useMemo(() => {
     return pins.filter((p) => p.visibility === 'members').length;
   }, [pins]);
+
+  // Private pins belonging to the current logged-in user
+  const myPrivatePinsCount = useMemo(() => {
+    if (!user) return 0;
+    return pins.filter(
+      (p) =>
+        p.visibility === 'members' &&
+        ((p.authorUid && p.authorUid === user.uid) ||
+          (p.author?.uid && p.author.uid === user.uid) ||
+          (p.authorEmail && p.authorEmail === user.email))
+    ).length;
+  }, [pins, user]);
 
   // Stats
   const totalPins = pins.length;
@@ -620,8 +786,8 @@ export default function App() {
         onDeleteAllPinsInFolder={handleDeleteAllPins}
       />
 
-      {/* Members Only Banner for non-logged in visitors */}
-      {!user && membersOnlyPinsCount > 0 && (
+      {/* Unregistered Visitors Notice */}
+      {!user && totalPrivatePinsCount > 0 && (
         <div style={{
           maxWidth: '1280px',
           margin: '0 auto 1.5rem auto',
@@ -652,10 +818,10 @@ export default function App() {
             </div>
             <div>
               <div style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.92rem' }}>
-                Hay {membersOnlyPinsCount} foto{membersOnlyPinsCount > 1 ? 's' : ''} exclusiva{membersOnlyPinsCount > 1 ? 's' : ''} para usuarios registrados
+                Fotos exclusivas y privadas disponibles en la comunidad
               </div>
               <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
-                Inicia sesión con tu cuenta de Google para desbloquear el contenido privado y participar en la comunidad.
+                Inicia sesión con Google para subir tus propias fotos privadas, guardar pines y participar.
               </div>
             </div>
           </div>
@@ -674,8 +840,66 @@ export default function App() {
             }}
           >
             <LogIn size={15} />
-            <span>Acceder para ver todo</span>
+            <span>Acceder con Google</span>
           </button>
+        </div>
+      )}
+
+      {/* Regular user private pins indicator */}
+      {user && !isAdmin && myPrivatePinsCount > 0 && (
+        <div style={{
+          maxWidth: '1280px',
+          margin: '0 auto 1.25rem auto',
+          padding: '0.65rem 1rem',
+          borderRadius: '14px',
+          background: 'rgba(139, 92, 246, 0.08)',
+          border: '1px solid rgba(139, 92, 246, 0.25)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.65rem',
+          fontSize: '0.85rem',
+          color: '#c4b5fd'
+        }}>
+          <Lock size={15} color="#a78bfa" />
+          <span>
+            Tienes <strong>{myPrivatePinsCount} foto{myPrivatePinsCount > 1 ? 's' : ''} privada{myPrivatePinsCount > 1 ? 's' : ''}</strong> en la galería (solo visibles para ti y el Administrador).
+          </span>
+        </div>
+      )}
+
+      {/* Admin privileged view indicator */}
+      {isAdmin && (
+        <div style={{
+          maxWidth: '1280px',
+          margin: '0 auto 1.25rem auto',
+          padding: '0.65rem 1rem',
+          borderRadius: '14px',
+          background: 'rgba(245, 158, 11, 0.08)',
+          border: '1px solid rgba(245, 158, 11, 0.25)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '0.65rem',
+          fontSize: '0.84rem',
+          color: '#fcd34d',
+          flexWrap: 'wrap'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+            <span style={{ fontSize: '1.1rem' }}>👑</span>
+            <span>
+              <strong>Vista de Administrador:</strong> Estás visualizando todas las fotos públicas y las fotos privadas de todos los usuarios ({totalPrivatePinsCount} fotos privadas en la plataforma).
+            </span>
+          </div>
+          <span style={{
+            fontSize: '0.74rem',
+            padding: '2px 8px',
+            borderRadius: '999px',
+            background: 'rgba(245, 158, 11, 0.15)',
+            border: '1px solid rgba(245, 158, 11, 0.3)',
+            fontWeight: 600
+          }}>
+            Modo Superusuario
+          </span>
         </div>
       )}
 
@@ -690,6 +914,7 @@ export default function App() {
         onSharePin={handleShare}
         onResetFilters={handleGoHome}
         isAdmin={isAdmin}
+        user={user}
         onDeletePin={handleDeletePin}
         onToggleVisibility={handleTogglePinVisibility}
       />
@@ -770,11 +995,11 @@ export default function App() {
         status={userStatus}
       />
 
-      {/* Cloudinary & Firebase Settings Modal - ADMIN ONLY */}
+      {/* Administration Settings Modal - ADMIN ONLY */}
       <SettingsModal
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
-        onSettingsSaved={() => addToast('Configuración de Cloudinary actualizada')}
+        onSettingsSaved={() => addToast('Configuración del sistema guardada con éxito')}
         isAdmin={isAdmin}
         user={user}
         pins={pins}
@@ -785,6 +1010,21 @@ export default function App() {
         onDeleteFolder={handleDeleteFolder}
         onDeleteAllCustomFolders={handleDeleteAllCustomFolders}
         onToggleVisibility={handleTogglePinVisibility}
+        addToast={addToast}
+      />
+
+      {/* Confirmation & Alert Modal Dialog */}
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        onClose={closeConfirm}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        cancelText={confirmModal.cancelText}
+        variant={confirmModal.variant}
+        itemPreview={confirmModal.itemPreview}
+        options={confirmModal.options}
+        onConfirm={confirmModal.onConfirm}
       />
 
       {/* Toast Notifications */}

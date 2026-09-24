@@ -58,17 +58,17 @@ export default function AuthModal({
           {actionReason === 'upload'
             ? 'Inicia sesión para subir fotos'
             : actionReason === 'folder'
-            ? 'Inicia sesión para crear carpetas'
+            ? 'Inicia sesión para crear álbumes'
             : 'Acceso con Google'}
         </h2>
 
         {/* Subtitle */}
         <p style={{ fontSize: '0.86rem', color: 'var(--text-muted)', marginBottom: '20px', lineHeight: 1.5 }}>
           {actionReason === 'upload'
-            ? 'Para almacenar tus fotos en Cloudinary y compartirlas en la galería de Olivia, autentícate con tu cuenta de Google.'
+            ? 'Para publicar tus fotos y compartirlas en la galería de Olivia, accede con tu cuenta de Google.'
             : actionReason === 'folder'
-            ? 'Para organizar y crear nuevas carpetas personalizadas en Cloudinary, accede con tu cuenta de Google.'
-            : 'Solo los usuarios autenticados con Google pueden subir imágenes y crear carpetas personalizadas.'}
+            ? 'Para organizar y crear nuevos álbumes personalizados, accede con tu cuenta de Google.'
+            : 'Solo los miembros registrados pueden publicar fotos y crear álbumes personalizados.'}
         </p>
 
         {/* Perks Box */}
@@ -87,15 +87,15 @@ export default function AuthModal({
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <UploadCloud size={15} color="#f59e0b" />
-            <span>Subir imágenes a <strong>Cloudinary</strong></span>
+            <span>Publicar fotos en la <strong>Galería Oficial</strong></span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <FolderPlus size={15} color="#8b5cf6" />
-            <span>Crear y organizar <strong>carpetas felinas</strong></span>
+            <span>Crear y organizar <strong>álbumes temáticos</strong></span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Sparkles size={15} color="#10b981" />
-            <span>Tu nombre y foto de Google en tus pines</span>
+            <span>Tu nombre y foto en tus publicaciones</span>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Shield size={15} color="#3b82f6" />
@@ -157,7 +157,7 @@ export default function AuthModal({
         </button>
 
         <p style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '16px' }}>
-          Autenticación oficial y segura respaldada por <strong>Firebase Auth</strong>
+          Autenticación oficial y segura con tu cuenta de <strong>Google</strong>
         </p>
       </div>
     </div>

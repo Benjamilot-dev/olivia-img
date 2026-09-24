@@ -81,7 +81,7 @@ export default function FolderBar({
             key={folder.id}
             className={`folder-pill ${isActive ? 'active' : ''}`}
             onClick={() => onSelectFolder(folder.slug)}
-            title={`Carpeta Cloudinary: ${folder.slug || 'todas'}`}
+            title={`Álbum: ${folder.name}`}
           >
             <IconComponent size={15} color={isActive ? '#111' : (folder.color || 'var(--text-muted)')} />
             <span>{folder.name}</span>
@@ -144,10 +144,10 @@ export default function FolderBar({
         <button
           className="folder-add-btn"
           onClick={handleStartAddFolder}
-          title={user ? "Crear nueva carpeta en Cloudinary" : "Inicia sesión con Google para crear carpetas"}
+          title={user ? "Crear nuevo álbum" : "Inicia sesión con Google para crear álbumes"}
         >
           {user ? <FolderPlus size={15} /> : <Lock size={13} />}
-          <span>Nueva Carpeta</span>
+          <span>Nuevo Álbum</span>
         </button>
       )}
 

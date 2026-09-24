@@ -62,8 +62,8 @@ export default function PendingApprovalModal({
 
         <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', lineHeight: 1.6, marginBottom: '22px' }}>
           {isRejected
-            ? 'El Administrador ha restringido el acceso de esta cuenta para subir fotos o crear carpetas.'
-            : 'Tu cuenta ha sido registrada en el sistema. Para garantizar la seguridad de la galería, el Administrador debe aceptar tu solicitud antes de que puedas subir fotos a Cloudinary o crear nuevas carpetas.'}
+            ? 'El Administrador ha restringido el acceso de esta cuenta para publicar fotos o crear nuevos álbumes.'
+            : 'Tu cuenta ha sido registrada en el sistema. Para garantizar la seguridad de la galería, el Administrador debe aceptar tu solicitud antes de que puedas publicar fotos en la galería o crear nuevos álbumes.'}
         </p>
 
         {/* Status Badge */}

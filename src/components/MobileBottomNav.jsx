@@ -40,7 +40,7 @@ export default function MobileBottomNav({
       <button
         className="bottom-nav-create-btn"
         onClick={onOpenUpload}
-        title="Subir Pin a Cloudinary"
+        title="Publicar Nueva Foto"
       >
         <PlusCircle size={26} strokeWidth={2.2} />
       </button>
@@ -49,10 +49,10 @@ export default function MobileBottomNav({
       <button
         className="bottom-nav-item"
         onClick={onOpenFolders}
-        title="Carpetas Cloudinary"
+        title="Álbumes y Categorías"
       >
         <FolderHeart size={20} />
-        <span>Carpetas</span>
+        <span>Álbumes</span>
       </button>
 
       {/* Profile / Admin / Auth */}

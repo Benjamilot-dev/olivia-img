@@ -33,6 +33,7 @@ import {
   deleteUserFromDatabase 
 } from '../services/userService';
 import UserAvatar from './UserAvatar';
+import ConfirmModal from './ConfirmModal';
 
 export default function SettingsModal({
   isOpen,
@@ -47,7 +48,8 @@ export default function SettingsModal({
   onResetInitialPins,
   onDeleteFolder,
   onDeleteAllCustomFolders,
-  onToggleVisibility
+  onToggleVisibility,
+  addToast
 }) {
   const currentConfig = getCloudinaryConfig();
   const [activeTab, setActiveTab] = useState('users'); // 'users' | 'content' | 'cloudinary'
@@ -63,6 +65,7 @@ export default function SettingsModal({
   const [userSearch, setUserSearch] = useState('');
   const [pinSearch, setPinSearch] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
+  const [confirmConfig, setConfirmConfig] = useState(null);
 
   useEffect(() => {
     if (isOpen && isAdmin) {
@@ -87,9 +90,11 @@ export default function SettingsModal({
     const res = await updateUserStatus(targetUid, 'approved', user?.displayName || 'Admin');
     if (res.success) {
       showFeedback(`Solicitud de ${targetName || 'usuario'} aprobada con éxito ✅`);
+      if (addToast) addToast(`Usuario ${targetName || ''} aprobado con éxito ✅`);
       loadUsers();
     } else {
-      alert("Error: " + res.error);
+      showFeedback("Error: " + res.error);
+      if (addToast) addToast("Error: " + res.error, "error");
     }
   };
 
@@ -97,42 +102,76 @@ export default function SettingsModal({
     const res = await updateUserStatus(targetUid, 'rejected', user?.displayName || 'Admin');
     if (res.success) {
       showFeedback(`Acceso de ${targetName || 'usuario'} denegado / pausado`);
+      if (addToast) addToast(`Acceso pausado para ${targetName || 'usuario'}`, 'info');
       loadUsers();
     } else {
-      alert("Error: " + res.error);
+      showFeedback("Error: " + res.error);
+      if (addToast) addToast("Error: " + res.error, "error");
     }
   };
 
-  const handleDelete = async (targetUid, targetName) => {
+  const handleDelete = (targetUid, targetName) => {
     if (targetUid === user?.uid) {
-      alert("No puedes eliminar tu propia cuenta de Administrador.");
+      showFeedback("No puedes eliminar tu propia cuenta de Administrador ⚠️");
+      if (addToast) addToast("No puedes eliminar tu propia cuenta de Administrador", "error");
       return;
     }
-    const confirmed = window.confirm(`¿Estás seguro de que deseas eliminar permanentemente a "${targetName}" de la base de datos de Firebase?`);
-    if (!confirmed) return;
 
-    const res = await deleteUserFromDatabase(targetUid);
-    if (res.success) {
-      showFeedback(`Usuario ${targetName} eliminado de la base de datos 🗑️`);
-      loadUsers();
-    } else {
-      alert("Error al eliminar: " + res.error);
-    }
+    setConfirmConfig({
+      title: `¿Eliminar al usuario "${targetName}"?`,
+      message: 'Esta acción removerá permanentemente al usuario de la base de datos de Firebase y revocará sus permisos.',
+      confirmText: 'Sí, eliminar usuario',
+      cancelText: 'Cancelar',
+      variant: 'danger',
+      itemPreview: {
+        title: targetName,
+        subtitle: `ID: ${targetUid.slice(0, 14)}...`,
+        badge: 'Usuario registrado'
+      },
+      onConfirm: async () => {
+        const res = await deleteUserFromDatabase(targetUid);
+        if (res.success) {
+          showFeedback(`Usuario "${targetName}" eliminado correctamente 🗑️`);
+          if (addToast) addToast(`Usuario "${targetName}" eliminado de Firebase`, 'info');
+          loadUsers();
+        } else {
+          showFeedback("Error al eliminar: " + res.error);
+          if (addToast) addToast("Error al eliminar: " + res.error, "error");
+        }
+      }
+    });
   };
 
-  const handleToggleRole = async (targetUid, currentRole, targetName) => {
+  const handleToggleRole = (targetUid, currentRole, targetName) => {
     if (targetUid === user?.uid) {
-      alert("No puedes quitarte el rol de Administrador a ti mismo.");
+      showFeedback("No puedes quitarte el rol de Administrador a ti mismo ⚠️");
+      if (addToast) addToast("No puedes quitarte el rol de Administrador", "error");
       return;
     }
     const newRole = currentRole === 'admin' ? 'user' : 'admin';
-    const res = await changeUserRole(targetUid, newRole);
-    if (res.success) {
-      showFeedback(`Rol de ${targetName} cambiado a: ${newRole === 'admin' ? 'Administrador 👑' : 'Usuario estándar 👤'}`);
-      loadUsers();
-    } else {
-      alert("Error al cambiar rol: " + res.error);
-    }
+
+    setConfirmConfig({
+      title: newRole === 'admin' 
+        ? `¿Ascender a "${targetName}" a Administrador?` 
+        : `¿Cambiar a "${targetName}" a Usuario Estándar?`,
+      message: newRole === 'admin'
+        ? 'El usuario tendrá control total para gestionar fotos, carpetas, configuraciones y aprobar nuevos miembros.'
+        : 'El usuario perderá las facultades de administración y pasará a ser un usuario estándar de la comunidad.',
+      confirmText: newRole === 'admin' ? 'Ascender a Administrador 👑' : 'Cambiar a Estándar',
+      cancelText: 'Cancelar',
+      variant: newRole === 'admin' ? 'warning' : 'info',
+      onConfirm: async () => {
+        const res = await changeUserRole(targetUid, newRole);
+        if (res.success) {
+          showFeedback(`Rol de ${targetName} actualizado a: ${newRole === 'admin' ? 'Administrador 👑' : 'Usuario estándar 👤'}`);
+          if (addToast) addToast(`Rol de ${targetName} actualizado`);
+          loadUsers();
+        } else {
+          showFeedback("Error al cambiar rol: " + res.error);
+          if (addToast) addToast("Error al cambiar rol: " + res.error, "error");
+        }
+      }
+    });
   };
 
   if (!isOpen) return null;
@@ -168,7 +207,7 @@ export default function SettingsModal({
             Acceso Restringido
           </h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.88rem', lineHeight: 1.5, marginBottom: '24px' }}>
-            La configuración de Cloudinary y la administración de usuarios está reservada exclusivamente para el <strong>Administrador</strong>.
+            El panel de administración y la configuración del sistema están reservados exclusivamente para el <strong>Administrador</strong>.
           </p>
 
           <button
@@ -262,7 +301,7 @@ export default function SettingsModal({
                 </span>
               </div>
               <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                Gestión de solicitudes de acceso, usuarios en Firebase y Cloudinary
+                Gestión integral de usuarios, solicitudes de acceso y contenido
               </p>
             </div>
           </div>
@@ -370,7 +409,7 @@ export default function SettingsModal({
             }}
           >
             <Layers size={15} />
-            <span>Pines ({pins.length}) & Carpetas ({folders.length})</span>
+            <span>Pines ({pins.length}) & Álbumes ({folders.length})</span>
           </button>
 
           <button
@@ -392,7 +431,7 @@ export default function SettingsModal({
             }}
           >
             <Cloud size={15} />
-            <span>Cloudinary & Firebase</span>
+            <span>Almacenamiento & Servidor</span>
           </button>
         </div>
 
@@ -493,7 +532,7 @@ export default function SettingsModal({
                   className="btn-icon"
                   onClick={loadUsers}
                   style={{ width: '32px', height: '32px' }}
-                  title="Actualizar lista de Firebase"
+                  title="Actualizar lista de usuarios"
                 >
                   <RefreshCw size={13} className={isLoadingUsers ? 'animate-spin' : ''} />
                 </button>
@@ -679,7 +718,7 @@ export default function SettingsModal({
                               borderRadius: 'var(--radius-sm)',
                               cursor: 'pointer'
                             }}
-                            title="Eliminar usuario permanentemente de Firebase"
+                            title="Eliminar usuario de la plataforma"
                           >
                             <Trash2 size={13} />
                           </button>
@@ -1057,7 +1096,7 @@ export default function SettingsModal({
             }}>
               <h3 style={{ fontSize: '0.95rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
                 <Cloud size={16} color="#60a5fa" />
-                <span>Credenciales de Cloudinary</span>
+                <span>Almacenamiento en la Nube</span>
               </h3>
 
               <div className="form-group">
@@ -1107,7 +1146,7 @@ export default function SettingsModal({
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
                 <Shield size={16} color="#10b981" />
                 <h4 style={{ fontSize: '0.9rem', fontWeight: 700, color: '#34d399' }}>
-                  Firebase Conectado Activo
+                  Base de Datos en Tiempo Real Conectada
                 </h4>
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '6px', fontSize: '0.78rem', color: 'var(--text-muted)' }}>
@@ -1148,6 +1187,22 @@ export default function SettingsModal({
           </form>
         )}
       </div>
+
+      {/* Internal Confirm Modal */}
+      {confirmConfig && (
+        <ConfirmModal
+          isOpen={Boolean(confirmConfig)}
+          onClose={() => setConfirmConfig(null)}
+          title={confirmConfig.title}
+          message={confirmConfig.message}
+          confirmText={confirmConfig.confirmText}
+          cancelText={confirmConfig.cancelText}
+          variant={confirmConfig.variant}
+          itemPreview={confirmConfig.itemPreview}
+          options={confirmConfig.options}
+          onConfirm={confirmConfig.onConfirm}
+        />
+      )}
     </div>
   );
 }

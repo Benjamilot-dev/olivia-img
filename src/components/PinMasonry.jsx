@@ -12,6 +12,7 @@ export default function PinMasonry({
   onSharePin,
   onResetFilters,
   isAdmin = false,
+  user = null,
   onDeletePin,
   onToggleVisibility
 }) {
@@ -29,7 +30,7 @@ export default function PinMasonry({
           <SearchX size={48} color="#f59e0b" style={{ margin: '0 auto 16px' }} />
           <h2 style={{ fontSize: '1.3rem', marginBottom: '8px' }}>No encontramos pines aquí</h2>
           <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '20px' }}>
-            Prueba buscando con otra palabra o selecciona otra carpeta de Cloudinary.
+            Prueba buscando con otra palabra o selecciona otro álbum.
           </p>
           <button className="btn-primary-pinterest" onClick={onResetFilters} style={{ margin: '0 auto' }}>
             <Sparkles size={16} />
@@ -54,6 +55,7 @@ export default function PinMasonry({
             isSaved={savedPinIds.includes(pin.id)}
             onShare={onSharePin}
             isAdmin={isAdmin}
+            user={user}
             onDeletePin={onDeletePin}
             onToggleVisibility={onToggleVisibility}
           />

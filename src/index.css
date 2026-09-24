@@ -1238,6 +1238,33 @@ input, textarea, select {
   }
 }
 
+@keyframes toastSlideIn {
+  from {
+    transform: translateY(16px) scale(0.96);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.92);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.toast-luxury:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 25px 45px -10px rgba(0, 0, 0, 0.8), 0 0 1px 1px rgba(255, 255, 255, 0.1);
+}
+
 /* ==========================================================================
    MOBILE & TABLET MEDIA QUERIES (Dedicated Fine-Tuning)
    ========================================================================== */

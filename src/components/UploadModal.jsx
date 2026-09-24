@@ -117,6 +117,7 @@ export default function UploadModal({
           badge: 'Creador'
         },
         authorUid: user?.uid || null,
+        authorEmail: user?.email || null,
         tags: tagList,
         comments: [],
         createdAt: new Date().toISOString()
@@ -153,12 +154,12 @@ export default function UploadModal({
               Crear Nuevo Pin Felino
             </h2>
             <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-              Almacenamiento en Cloudinary con organización en carpetas
+              Comparte tus fotos favoritas y organízalas en álbumes temáticos
             </p>
           </div>
           <div className="cloudinary-badge">
-            <Cloud size={13} />
-            <span>Cloud: {cloudinaryConfig.cloudName || 'Configurable'}</span>
+            <Sparkles size={13} color="#f59e0b" />
+            <span>Galería Oficial</span>
           </div>
         </div>
 
@@ -269,7 +270,7 @@ export default function UploadModal({
 
             {/* Folder selection */}
             <div className="form-group">
-              <label className="form-label">Carpeta Cloudinary</label>
+              <label className="form-label">Álbum / Categoría</label>
               {!isCustomFolder ? (
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <select
@@ -385,10 +386,10 @@ export default function UploadModal({
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: visibility === 'members' ? '#c4b5fd' : '#fff', fontWeight: 700, fontSize: '0.88rem' }}>
                   <Lock size={16} />
-                  <span>Solo Registrados (Privada)</span>
+                  <span>Privada (Solo tú y Admin)</span>
                 </div>
                 <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.3 }}>
-                  Solo los usuarios que hayan iniciado sesión con su cuenta pueden ver esta foto.
+                  Solo tú y el Administrador pueden ver esta foto. Queda oculta para todos los demás usuarios.
                 </span>
               </button>
             </div>
@@ -398,7 +399,7 @@ export default function UploadModal({
           {isUploading && (
             <div style={{ marginBottom: '18px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '4px' }}>
-                <span>Subiendo a Cloudinary...</span>
+                <span>Publicando foto en la galería...</span>
                 <span>{uploadProgress}%</span>
               </div>
               <div style={{ height: '6px', background: 'rgba(255, 255, 255, 0.1)', borderRadius: '4px', overflow: 'hidden' }}>

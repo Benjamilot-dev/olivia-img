@@ -12,10 +12,21 @@ export default function PinCard({
   isSaved,
   onShare,
   isAdmin = false,
+  user = null,
   onDeletePin,
   onToggleVisibility
 }) {
   const [imgLoaded, setImgLoaded] = useState(false);
+
+  // Author check: can manage if user created the pin or is admin
+  const isAuthor = Boolean(
+    user && (
+      (pin.authorUid && pin.authorUid === user.uid) ||
+      (pin.author?.uid && pin.author.uid === user.uid) ||
+      (pin.authorEmail && pin.authorEmail === user.email)
+    )
+  );
+  const canManage = isAdmin || isAuthor;
 
   const handleLike = (e) => {
     e.stopPropagation();
@@ -79,7 +90,7 @@ export default function PinCard({
 
           {/* Mobile Top Folder Tag (visible on mobile where hover doesn't exist) */}
           <div className="pin-mobile-badge-top" style={{ display: 'flex', gap: '4px' }}>
-            <span className="pin-folder-badge-mini" title={`Cloudinary: ${pin.cloudinaryFolder}`}>
+            <span className="pin-folder-badge-mini" title={`Álbum: ${folderName}`}>
               <Cloud size={10} color="#60a5fa" />
               <span>{folderName}</span>
             </span>
@@ -104,7 +115,7 @@ export default function PinCard({
           <div className="pin-overlay">
             <div className="pin-overlay-top">
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span className="pin-folder-badge" title={`Guardado en Cloudinary: ${pin.cloudinaryFolder}`}>
+                <span className="pin-folder-badge" title={`Álbum: ${folderName}`}>
                   <Cloud size={11} color="#60a5fa" />
                   <span>{folderName}</span>
                 </span>
@@ -120,9 +131,9 @@ export default function PinCard({
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '4px'
-                  }} title="Foto visible solo para miembros registrados">
+                  }} title={isAdmin ? `Foto Privada de ${pin.author?.name || 'usuario'} (Visible para ti como Admin)` : 'Foto Privada (Solo tú y el Administrador pueden verla)'}>
                     <Lock size={10} />
-                    <span>Solo Registrados</span>
+                    <span>{isAuthor && !isAdmin ? 'Privada (Solo tú y Admin)' : isAdmin ? `Privada (${pin.author?.name || 'Usuario'})` : 'Privada'}</span>
                   </span>
                 )}
               </div>
@@ -153,7 +164,7 @@ export default function PinCard({
                 >
                   <Download size={15} />
                 </button>
-                {isAdmin && (
+                {canManage && (
                   <>
                     <button
                       className="pin-action-btn-circle"
@@ -165,7 +176,7 @@ export default function PinCard({
                         background: pin.visibility === 'members' ? 'rgba(139, 92, 246, 0.95)' : 'rgba(16, 185, 129, 0.95)',
                         color: '#fff'
                       }}
-                      title={pin.visibility === 'members' ? "Foto PRIVADA. Clic para hacerla Pública 🌍" : "Foto PÚBLICA. Clic para hacerla Solo para Registrados 🔒"}
+                      title={pin.visibility === 'members' ? "Foto PRIVADA. Clic para hacerla Pública 🌍" : "Foto PÚBLICA. Clic para hacerla Privada (Solo tú y Admin) 🔒"}
                     >
                       {pin.visibility === 'members' ? <Lock size={14} /> : <Globe size={14} />}
                     </button>
@@ -173,7 +184,7 @@ export default function PinCard({
                       className="pin-action-btn-circle"
                       onClick={handleDelete}
                       style={{ background: 'rgba(239, 68, 68, 0.9)', color: '#fff' }}
-                      title="Eliminar este Pin (Solo Admin)"
+                      title={isAuthor && !isAdmin ? "Eliminar mi Pin" : "Eliminar este Pin (Admin)"}
                     >
                       <Trash2 size={14} />
                     </button>
@@ -203,7 +214,7 @@ export default function PinCard({
             </div>
 
             <div className="pin-card-actions-row">
-              {isAdmin && (
+              {canManage && (
                 <>
                   <button
                     className="pin-quick-action-btn"
@@ -223,7 +234,7 @@ export default function PinCard({
                       border: 'none',
                       cursor: 'pointer'
                     }}
-                    title={pin.visibility === 'members' ? "Hacer Pública" : "Hacer Solo Miembros"}
+                    title={pin.visibility === 'members' ? "Hacer Pública" : "Hacer Privada"}
                   >
                     {pin.visibility === 'members' ? <Lock size={11} /> : <Globe size={11} />}
                   </button>
@@ -242,7 +253,7 @@ export default function PinCard({
                       border: 'none',
                       cursor: 'pointer'
                     }}
-                    title="Eliminar Pin (Admin)"
+                    title={isAuthor && !isAdmin ? "Eliminar mi foto" : "Eliminar Pin (Admin)"}
                   >
                     <Trash2 size={12} />
                   </button>
