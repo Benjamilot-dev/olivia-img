@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import UserAvatar from './UserAvatar';
-import { X, UploadCloud, Image as ImageIcon, Folder, Tag, AlertCircle, CheckCircle2, Loader2, Sparkles, Cloud } from 'lucide-react';
+import { X, UploadCloud, Image as ImageIcon, Folder, Tag, AlertCircle, CheckCircle2, Loader2, Sparkles, Cloud, Globe, Lock } from 'lucide-react';
 import { uploadToCloudinary, getCloudinaryConfig } from '../services/cloudinary';
 
 export default function UploadModal({
@@ -17,6 +17,7 @@ export default function UploadModal({
   const [folder, setFolder] = useState('olivia-cat/portraits');
   const [customFolder, setCustomFolder] = useState('');
   const [isCustomFolder, setIsCustomFolder] = useState(false);
+  const [visibility, setVisibility] = useState('public'); // 'public' | 'members'
   const [tags, setTags] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -107,6 +108,7 @@ export default function UploadModal({
         description: description.trim(),
         imageUrl: finalImageUrl,
         cloudinaryFolder: finalFolder,
+        visibility: visibility, // 'public' | 'members'
         likesCount: 1,
         savesCount: 0,
         author: {
@@ -114,6 +116,7 @@ export default function UploadModal({
           avatar: user?.photoURL || '/olivia-logo.png',
           badge: 'Creador'
         },
+        authorUid: user?.uid || null,
         tags: tagList,
         comments: [],
         createdAt: new Date().toISOString()
@@ -127,6 +130,7 @@ export default function UploadModal({
       setPreviewUrl('');
       setTitle('');
       setDescription('');
+      setVisibility('public');
       setTags('');
     } catch (err) {
       setErrorMessage(err.message || 'Error al procesar el pin');
@@ -332,6 +336,62 @@ export default function UploadModal({
               value={tags}
               onChange={(e) => setTags(e.target.value)}
             />
+          </div>
+
+          {/* Visibility Selector */}
+          <div className="form-group">
+            <label className="form-label">Privacidad / Visibilidad</label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '10px' }}>
+              <button
+                type="button"
+                onClick={() => setVisibility('public')}
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: 'var(--radius-md)',
+                  border: visibility === 'public' ? '2px solid #10b981' : '1px solid var(--border-subtle)',
+                  background: visibility === 'public' ? 'rgba(16, 185, 129, 0.12)' : 'rgba(0, 0, 0, 0.25)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'flex-start',
+                  gap: '4px',
+                  cursor: 'pointer',
+                  textAlign: 'left'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: visibility === 'public' ? '#34d399' : '#fff', fontWeight: 700, fontSize: '0.88rem' }}>
+                  <Globe size={16} />
+                  <span>Pública (Visible para todos)</span>
+                </div>
+                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.3 }}>
+                  Cualquier persona puede ver esta foto, incluso sin iniciar sesión ni estar registrado.
+                </span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setVisibility('members')}
+                style={{
+                  padding: '12px 14px',
+                  borderRadius: 'var(--radius-md)',
+                  border: visibility === 'members' ? '2px solid #8b5cf6' : '1px solid var(--border-subtle)',
+                  background: visibility === 'members' ? 'rgba(139, 92, 246, 0.12)' : 'rgba(0, 0, 0, 0.25)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'flex-start',
+                  gap: '4px',
+                  cursor: 'pointer',
+                  textAlign: 'left'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: visibility === 'members' ? '#c4b5fd' : '#fff', fontWeight: 700, fontSize: '0.88rem' }}>
+                  <Lock size={16} />
+                  <span>Solo Registrados (Privada)</span>
+                </div>
+                <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)', lineHeight: 1.3 }}>
+                  Solo los usuarios que hayan iniciado sesión con su cuenta pueden ver esta foto.
+                </span>
+              </button>
+            </div>
           </div>
 
           {/* Upload Progress Bar */}

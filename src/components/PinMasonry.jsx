@@ -10,7 +10,10 @@ export default function PinMasonry({
   likedPinIds,
   savedPinIds,
   onSharePin,
-  onResetFilters
+  onResetFilters,
+  isAdmin = false,
+  onDeletePin,
+  onToggleVisibility
 }) {
   if (pins.length === 0) {
     return (
@@ -50,6 +53,9 @@ export default function PinMasonry({
             isLiked={likedPinIds.includes(pin.id)}
             isSaved={savedPinIds.includes(pin.id)}
             onShare={onSharePin}
+            isAdmin={isAdmin}
+            onDeletePin={onDeletePin}
+            onToggleVisibility={onToggleVisibility}
           />
         ))}
       </div>

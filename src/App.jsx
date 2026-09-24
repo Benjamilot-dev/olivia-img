@@ -10,13 +10,14 @@ import SettingsModal from './components/SettingsModal';
 import PendingApprovalModal from './components/PendingApprovalModal';
 import MobileBottomNav from './components/MobileBottomNav';
 import Toast from './components/Toast';
+import { Lock, LogIn, Sparkles } from 'lucide-react';
 
 import { INITIAL_PINS } from './data/initialPins';
 import { DEFAULT_FOLDERS } from './services/cloudinary';
 import { auth, database, logoutUser } from './firebase/config';
 import { syncUserToDatabase, subscribeUserRole } from './services/userService';
 import { onAuthStateChanged } from 'firebase/auth';
-import { ref, onValue, set, update } from 'firebase/database';
+import { ref, onValue, set, update, remove } from 'firebase/database';
 
 export default function App() {
   const searchInputRef = useRef(null);
@@ -354,6 +355,162 @@ export default function App() {
     addToast('Comentario publicado');
   };
 
+  // =========================================================================
+  // ADMIN DELETION & CONTENT MANAGEMENT ACTIONS
+  // =========================================================================
+
+  // 1. Delete individual pin
+  const handleDeletePin = (pin) => {
+    if (!isAdmin) {
+      addToast('Solo el Administrador puede eliminar pines', 'error');
+      return;
+    }
+    const confirmed = window.confirm(`¿Estás seguro de que deseas eliminar permanentemente el pin "${pin.title}"?`);
+    if (!confirmed) return;
+
+    try {
+      remove(ref(database, `pins/${pin.id}`)).catch((err) => console.warn(err));
+    } catch {}
+
+    setPins((prev) => prev.filter((p) => p.id !== pin.id));
+    if (selectedPin && selectedPin.id === pin.id) {
+      setSelectedPin(null);
+    }
+    addToast(`Pin "${pin.title}" eliminado de la base de datos 🗑️`);
+  };
+
+  // 2. Delete all pins or all pins in a specific folder
+  const handleDeleteAllPins = (folderSlug = null) => {
+    if (!isAdmin) {
+      addToast('Solo el Administrador puede realizar esta acción', 'error');
+      return;
+    }
+
+    if (folderSlug) {
+      const folderPins = pins.filter((p) => p.cloudinaryFolder === folderSlug);
+      if (folderPins.length === 0) {
+        addToast('No hay fotos en esta carpeta para eliminar', 'info');
+        return;
+      }
+      const confirmed = window.confirm(`¿Deseas eliminar permanentemente TODAS las fotos de esta carpeta (${folderPins.length} fotos)?`);
+      if (!confirmed) return;
+
+      folderPins.forEach((p) => {
+        try {
+          remove(ref(database, `pins/${p.id}`)).catch(() => {});
+        } catch {}
+      });
+
+      setPins((prev) => prev.filter((p) => p.cloudinaryFolder !== folderSlug));
+      addToast(`Se eliminaron ${folderPins.length} fotos de la carpeta 🗑️`);
+    } else {
+      const confirmed = window.confirm(`⚠️ ADVERTENCIA: ¿Estás seguro de que deseas eliminar TODOS los pines (${pins.length}) de la galería?`);
+      if (!confirmed) return;
+
+      try {
+        remove(ref(database, 'pins')).catch(() => {});
+      } catch {}
+
+      setPins([]);
+      if (selectedPin) setSelectedPin(null);
+      addToast('Todos los pines han sido eliminados de la galería 🗑️');
+    }
+  };
+
+  // 3. Reset initial pins to default official Olivia pins
+  const handleResetInitialPins = () => {
+    if (!isAdmin) {
+      addToast('Solo el Administrador puede restablecer pines', 'error');
+      return;
+    }
+    const confirmed = window.confirm('¿Deseas restablecer los pines y fotos oficiales de Olivia the Cat?');
+    if (!confirmed) return;
+
+    try {
+      INITIAL_PINS.forEach((ip) => {
+        set(ref(database, `pins/${ip.id}`), ip).catch(() => {});
+      });
+    } catch {}
+
+    setPins(INITIAL_PINS);
+    addToast('Pines oficiales de Olivia restablecidos ✨');
+  };
+
+  // 4. Delete single folder
+  const handleDeleteFolder = (folder) => {
+    if (!isAdmin) {
+      addToast('Solo el Administrador puede eliminar carpetas', 'error');
+      return;
+    }
+    if (folder.id === 'all') return;
+
+    const folderPins = pins.filter((p) => p.cloudinaryFolder === folder.slug);
+    const confirmed = window.confirm(`¿Estás seguro de que deseas eliminar la carpeta "${folder.name}"?`);
+    if (!confirmed) return;
+
+    if (folderPins.length > 0) {
+      const deletePhotos = window.confirm(`Esta carpeta contiene ${folderPins.length} fotos. ¿Deseas eliminar también las fotos? Haz clic en "Aceptar" para borrarlas, o "Cancelar" para conservarlas en la galería general.`);
+      if (deletePhotos) {
+        folderPins.forEach((p) => {
+          try {
+            remove(ref(database, `pins/${p.id}`)).catch(() => {});
+          } catch {}
+        });
+        setPins((prev) => prev.filter((p) => p.cloudinaryFolder !== folder.slug));
+      } else {
+        // Reassign to root/general
+        folderPins.forEach((p) => {
+          try {
+            update(ref(database, `pins/${p.id}`), { cloudinaryFolder: 'olivia-cat/portraits' }).catch(() => {});
+          } catch {}
+        });
+        setPins((prev) => prev.map((p) => p.cloudinaryFolder === folder.slug ? { ...p, cloudinaryFolder: 'olivia-cat/portraits' } : p));
+      }
+    }
+
+    setFolders((prev) => prev.filter((f) => f.id !== folder.id));
+    if (activeFolder === folder.slug) {
+      setActiveFolder('');
+    }
+    addToast(`Carpeta "${folder.name}" eliminada 📁🗑️`);
+  };
+
+  // 5. Delete all custom folders
+  const handleDeleteAllCustomFolders = () => {
+    if (!isAdmin) {
+      addToast('Solo el Administrador puede restablecer carpetas', 'error');
+      return;
+    }
+    const confirmed = window.confirm('¿Deseas eliminar todas las carpetas creadas y volver a las predeterminadas?');
+    if (!confirmed) return;
+
+    setFolders(DEFAULT_FOLDERS);
+    setActiveFolder('');
+    addToast('Carpetas restablecidas a las predeterminadas 📁');
+  };
+
+  // 6. Toggle Pin Visibility (Public / Members Only)
+  const handleTogglePinVisibility = (pin) => {
+    if (!isAdmin) {
+      addToast('Solo el Administrador puede cambiar la visibilidad de los pines', 'error');
+      return;
+    }
+    const currentVis = pin.visibility || 'public';
+    const newVisibility = currentVis === 'members' ? 'public' : 'members';
+
+    try {
+      update(ref(database, `pins/${pin.id}`), { visibility: newVisibility }).catch(() => {});
+    } catch {}
+
+    setPins((prev) => prev.map((p) => p.id === pin.id ? { ...p, visibility: newVisibility } : p));
+
+    if (selectedPin && selectedPin.id === pin.id) {
+      setSelectedPin((prev) => ({ ...prev, visibility: newVisibility }));
+    }
+
+    addToast(`Pin "${pin.title}" ahora es ${newVisibility === 'public' ? 'Público para todos 🌍' : 'Privado (solo para registrados) 🔒'}`);
+  };
+
   const handleLogout = async () => {
     await logoutUser();
     setIsAdmin(false);
@@ -385,9 +542,14 @@ export default function App() {
     }
   };
 
-  // Filter Pins based on activeFolder and searchTerm
+  // Filter Pins based on activeFolder, searchTerm, and User Authentication Visibility
   const filteredPins = useMemo(() => {
     return pins.filter((pin) => {
+      // Visibility rule: Unregistered / unauthenticated visitors only see public photos
+      if (!user && pin.visibility === 'members') {
+        return false;
+      }
+
       if (activeFolder && pin.cloudinaryFolder !== activeFolder) {
         return false;
       }
@@ -401,7 +563,12 @@ export default function App() {
       }
       return true;
     });
-  }, [pins, activeFolder, searchTerm]);
+  }, [pins, activeFolder, searchTerm, user]);
+
+  // Members-only count
+  const membersOnlyPinsCount = useMemo(() => {
+    return pins.filter((p) => p.visibility === 'members').length;
+  }, [pins]);
 
   // Stats
   const totalPins = pins.length;
@@ -446,9 +613,71 @@ export default function App() {
         getPinsCountByFolder={getPinsCountByFolder}
         user={user}
         isApproved={isApproved}
+        isAdmin={isAdmin}
         onRequireAuth={handleRequireAuth}
         onRequireApproval={() => setIsPendingModalOpen(true)}
+        onDeleteFolder={handleDeleteFolder}
+        onDeleteAllPinsInFolder={handleDeleteAllPins}
       />
+
+      {/* Members Only Banner for non-logged in visitors */}
+      {!user && membersOnlyPinsCount > 0 && (
+        <div style={{
+          maxWidth: '1280px',
+          margin: '0 auto 1.5rem auto',
+          padding: '0.85rem 1.25rem',
+          borderRadius: '16px',
+          background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(245, 158, 11, 0.08))',
+          border: '1px solid rgba(239, 68, 68, 0.25)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '1rem',
+          flexWrap: 'wrap',
+          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.25)'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
+            <div style={{
+              width: '38px',
+              height: '38px',
+              borderRadius: '10px',
+              background: 'rgba(239, 68, 68, 0.2)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#ef4444',
+              flexShrink: 0
+            }}>
+              <Lock size={18} />
+            </div>
+            <div>
+              <div style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.92rem' }}>
+                Hay {membersOnlyPinsCount} foto{membersOnlyPinsCount > 1 ? 's' : ''} exclusiva{membersOnlyPinsCount > 1 ? 's' : ''} para usuarios registrados
+              </div>
+              <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+                Inicia sesión con tu cuenta de Google para desbloquear el contenido privado y participar en la comunidad.
+              </div>
+            </div>
+          </div>
+          <button
+            onClick={() => handleRequireAuth('browse')}
+            className="btn btn-secondary"
+            style={{
+              padding: '0.5rem 1.1rem',
+              fontSize: '0.85rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.45rem',
+              borderColor: 'rgba(239, 68, 68, 0.4)',
+              color: '#f8fafc',
+              background: 'rgba(239, 68, 68, 0.15)'
+            }}
+          >
+            <LogIn size={15} />
+            <span>Acceder para ver todo</span>
+          </button>
+        </div>
+      )}
 
       {/* Pinterest Masonry Grid */}
       <PinMasonry
@@ -460,6 +689,9 @@ export default function App() {
         savedPinIds={savedPinIds}
         onSharePin={handleShare}
         onResetFilters={handleGoHome}
+        isAdmin={isAdmin}
+        onDeletePin={handleDeletePin}
+        onToggleVisibility={handleTogglePinVisibility}
       />
 
       {/* Mobile Bottom Navigation Bar */}
@@ -489,6 +721,9 @@ export default function App() {
           onSelectTag={(tag) => setSearchTerm(tag)}
           onAddComment={handleAddComment}
           user={user}
+          isAdmin={isAdmin}
+          onDeletePin={handleDeletePin}
+          onToggleVisibility={handleTogglePinVisibility}
         />
       )}
 
@@ -542,6 +777,14 @@ export default function App() {
         onSettingsSaved={() => addToast('Configuración de Cloudinary actualizada')}
         isAdmin={isAdmin}
         user={user}
+        pins={pins}
+        folders={folders}
+        onDeletePin={handleDeletePin}
+        onDeleteAllPins={handleDeleteAllPins}
+        onResetInitialPins={handleResetInitialPins}
+        onDeleteFolder={handleDeleteFolder}
+        onDeleteAllCustomFolders={handleDeleteAllCustomFolders}
+        onToggleVisibility={handleTogglePinVisibility}
       />
 
       {/* Toast Notifications */}

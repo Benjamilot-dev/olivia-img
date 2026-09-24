@@ -9,9 +9,12 @@ import {
   Cloud, 
   Send, 
   MessageCircle, 
-  Calendar,
-  ExternalLink,
-  Sparkles
+  Calendar, 
+  ExternalLink, 
+  Sparkles,
+  Trash2,
+  Globe,
+  Lock
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -25,7 +28,10 @@ export default function PinDetailModal({
   onShare,
   onSelectTag,
   onAddComment,
-  user
+  user,
+  isAdmin = false,
+  onDeletePin,
+  onToggleVisibility
 }) {
   const [newComment, setNewComment] = useState('');
 
@@ -115,6 +121,36 @@ export default function PinDetailModal({
               >
                 <ExternalLink size={16} />
               </a>
+              {isAdmin && (
+                <>
+                  <button
+                    className="btn-secondary"
+                    onClick={() => onToggleVisibility && onToggleVisibility(pin)}
+                    style={{
+                      fontSize: '0.78rem',
+                      padding: '6px 12px',
+                      color: pin.visibility === 'members' ? '#c4b5fd' : '#34d399',
+                      border: pin.visibility === 'members' ? '1px solid rgba(139, 92, 246, 0.4)' : '1px solid rgba(16, 185, 129, 0.4)',
+                      background: pin.visibility === 'members' ? 'rgba(139, 92, 246, 0.12)' : 'rgba(16, 185, 129, 0.12)',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '5px'
+                    }}
+                    title={pin.visibility === 'members' ? "Clic para hacerla pública" : "Clic para hacerla solo registrados"}
+                  >
+                    {pin.visibility === 'members' ? <Globe size={13} /> : <Lock size={13} />}
+                    <span>{pin.visibility === 'members' ? 'Hacer Pública' : 'Hacer Privada'}</span>
+                  </button>
+                  <button
+                    className="btn-icon"
+                    onClick={() => onDeletePin && onDeletePin(pin)}
+                    style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.35)', background: 'rgba(239, 68, 68, 0.1)' }}
+                    title="Eliminar este Pin (Solo Admin)"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </>
+              )}
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -145,12 +181,30 @@ export default function PinDetailModal({
             </div>
           </div>
 
-          {/* Cloudinary Folder Badge */}
+          {/* Badges Row */}
           <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
             <span className="cloudinary-badge">
               <Cloud size={12} />
               <span>{folderName}</span>
             </span>
+
+            {/* Visibility Badge */}
+            <span style={{
+              background: pin.visibility === 'members' ? 'rgba(139, 92, 246, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+              color: pin.visibility === 'members' ? '#c4b5fd' : '#34d399',
+              border: pin.visibility === 'members' ? '1px solid rgba(139, 92, 246, 0.35)' : '1px solid rgba(16, 185, 129, 0.35)',
+              padding: '2px 8px',
+              borderRadius: 'var(--radius-full)',
+              fontSize: '0.7rem',
+              fontWeight: 700,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}>
+              {pin.visibility === 'members' ? <Lock size={11} /> : <Globe size={11} />}
+              <span>{pin.visibility === 'members' ? 'Solo para Registrados' : 'Pública para Todos'}</span>
+            </span>
+
             {pin.isOfficial && (
               <span style={{
                 background: 'rgba(245, 158, 11, 0.15)',
@@ -280,6 +334,16 @@ export default function PinDetailModal({
             <button className="btn-icon" onClick={handleDownload} title="Descargar">
               <Download size={16} />
             </button>
+            {isAdmin && (
+              <button
+                className="btn-icon"
+                onClick={() => onDeletePin && onDeletePin(pin)}
+                style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.35)', background: 'rgba(239, 68, 68, 0.1)' }}
+                title="Eliminar Pin (Solo Admin)"
+              >
+                <Trash2 size={16} />
+              </button>
+            )}
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button

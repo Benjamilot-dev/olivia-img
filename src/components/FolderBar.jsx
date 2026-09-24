@@ -9,7 +9,8 @@ import {
   Smile, 
   FolderPlus,
   Folder,
-  Lock
+  Lock,
+  Trash2
 } from 'lucide-react';
 
 const ICON_MAP = {
@@ -31,8 +32,11 @@ export default function FolderBar({
   getPinsCountByFolder,
   user,
   isApproved = false,
+  isAdmin = false,
   onRequireAuth,
-  onRequireApproval
+  onRequireApproval,
+  onDeleteFolder,
+  onDeleteAllPinsInFolder
 }) {
   const [showNewFolderInput, setShowNewFolderInput] = useState(false);
   const [newFolderName, setNewFolderName] = useState('');
@@ -82,6 +86,28 @@ export default function FolderBar({
             <IconComponent size={15} color={isActive ? '#111' : (folder.color || 'var(--text-muted)')} />
             <span>{folder.name}</span>
             <span className="folder-pill-badge">{count}</span>
+            {isAdmin && folder.id !== 'all' && (
+              <span
+                role="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onDeleteFolder) onDeleteFolder(folder);
+                }}
+                title={`Eliminar carpeta "${folder.name}" (Admin)`}
+                style={{
+                  marginLeft: '4px',
+                  padding: '2px 4px',
+                  borderRadius: '50%',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: isActive ? '#ef4444' : 'var(--text-muted)',
+                  cursor: 'pointer'
+                }}
+              >
+                <Trash2 size={11} />
+              </span>
+            )}
           </button>
         );
       })}
@@ -122,6 +148,32 @@ export default function FolderBar({
         >
           {user ? <FolderPlus size={15} /> : <Lock size={13} />}
           <span>Nueva Carpeta</span>
+        </button>
+      )}
+
+      {/* Admin Quick Batch Delete Action */}
+      {isAdmin && (
+        <button
+          type="button"
+          onClick={() => onDeleteAllPinsInFolder && onDeleteAllPinsInFolder(activeFolder || null)}
+          title={activeFolder ? "Eliminar todos los pines de esta carpeta" : "Eliminar todos los pines de la galería"}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '5px',
+            padding: '7px 12px',
+            borderRadius: 'var(--radius-full)',
+            fontSize: '0.78rem',
+            fontWeight: 600,
+            background: 'rgba(239, 68, 68, 0.1)',
+            color: '#f87171',
+            border: '1px solid rgba(239, 68, 68, 0.3)',
+            cursor: 'pointer',
+            whiteSpace: 'nowrap'
+          }}
+        >
+          <Trash2 size={12} />
+          <span>{activeFolder ? 'Vaciar carpeta' : 'Vaciar galería'}</span>
         </button>
       )}
     </div>

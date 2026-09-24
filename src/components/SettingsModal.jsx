@@ -16,7 +16,13 @@ import {
   CheckCircle,
   AlertCircle,
   RefreshCw,
-  Bell
+  Bell,
+  Folder,
+  Image,
+  RotateCcw,
+  Layers,
+  Sparkles,
+  Globe
 } from 'lucide-react';
 import { getCloudinaryConfig, saveCloudinaryConfig } from '../services/cloudinary';
 import { firebaseConfig } from '../firebase/config';
@@ -33,10 +39,18 @@ export default function SettingsModal({
   onClose,
   onSettingsSaved,
   isAdmin,
-  user
+  user,
+  pins = [],
+  folders = [],
+  onDeletePin,
+  onDeleteAllPins,
+  onResetInitialPins,
+  onDeleteFolder,
+  onDeleteAllCustomFolders,
+  onToggleVisibility
 }) {
   const currentConfig = getCloudinaryConfig();
-  const [activeTab, setActiveTab] = useState('users'); // Start on 'users' so admin sees requests directly
+  const [activeTab, setActiveTab] = useState('users'); // 'users' | 'content' | 'cloudinary'
   const [cloudName, setCloudName] = useState(currentConfig.cloudName || '');
   const [uploadPreset, setUploadPreset] = useState(currentConfig.uploadPreset || '');
   const [baseFolder, setBaseFolder] = useState(currentConfig.baseFolder || 'olivia-cat');
@@ -47,6 +61,7 @@ export default function SettingsModal({
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [userFilter, setUserFilter] = useState('all'); // 'all' | 'pending' | 'approved' | 'rejected'
   const [userSearch, setUserSearch] = useState('');
+  const [pinSearch, setPinSearch] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
 
   useEffect(() => {
@@ -298,16 +313,19 @@ export default function SettingsModal({
           background: 'rgba(0, 0, 0, 0.3)',
           padding: '4px',
           borderRadius: 'var(--radius-full)',
-          marginBottom: '18px'
+          marginBottom: '18px',
+          gap: '4px',
+          flexWrap: 'wrap'
         }}>
           <button
             type="button"
             onClick={() => setActiveTab('users')}
             style={{
               flex: 1,
+              minWidth: '180px',
               padding: '8px 14px',
               borderRadius: 'var(--radius-full)',
-              fontSize: '0.84rem',
+              fontSize: '0.82rem',
               fontWeight: 600,
               display: 'flex',
               alignItems: 'center',
@@ -318,7 +336,7 @@ export default function SettingsModal({
             }}
           >
             <Users size={15} />
-            <span>Solicitudes & Usuarios en DB ({usersList.length})</span>
+            <span>Usuarios en DB ({usersList.length})</span>
             {pendingCount > 0 && (
               <span style={{
                 background: '#e60023',
@@ -335,12 +353,35 @@ export default function SettingsModal({
 
           <button
             type="button"
+            onClick={() => setActiveTab('content')}
+            style={{
+              flex: 1,
+              minWidth: '180px',
+              padding: '8px 14px',
+              borderRadius: 'var(--radius-full)',
+              fontSize: '0.82rem',
+              fontWeight: 600,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              background: activeTab === 'content' ? 'var(--bg-card)' : 'transparent',
+              color: activeTab === 'content' ? '#fff' : 'var(--text-muted)'
+            }}
+          >
+            <Layers size={15} />
+            <span>Pines ({pins.length}) & Carpetas ({folders.length})</span>
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveTab('cloudinary')}
             style={{
               flex: 1,
+              minWidth: '180px',
               padding: '8px 14px',
               borderRadius: 'var(--radius-full)',
-              fontSize: '0.84rem',
+              fontSize: '0.82rem',
               fontWeight: 600,
               display: 'flex',
               alignItems: 'center',
@@ -351,7 +392,7 @@ export default function SettingsModal({
             }}
           >
             <Cloud size={15} />
-            <span>Almacenamiento Cloudinary & Firebase</span>
+            <span>Cloudinary & Firebase</span>
           </button>
         </div>
 
@@ -661,6 +702,335 @@ export default function SettingsModal({
                     : `No hay usuarios con el filtro seleccionado (${userFilter}).`}
                 </div>
               )}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={onClose}
+              >
+                Cerrar Panel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* TAB: CONTENT MANAGEMENT (PINS & FOLDERS) */}
+        {activeTab === 'content' && (
+          <div>
+            {/* Global Stats & Admin Batch Actions */}
+            <div style={{
+              background: 'rgba(239, 68, 68, 0.06)',
+              border: '1px solid rgba(239, 68, 68, 0.2)',
+              borderRadius: 'var(--radius-md)',
+              padding: '16px',
+              marginBottom: '18px'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px', flexWrap: 'wrap', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <Shield size={16} color="#ef4444" />
+                  <strong style={{ fontSize: '0.92rem', color: '#f87171' }}>
+                    Acciones Globales de Limpieza (Solo Admin)
+                  </strong>
+                </div>
+                <div style={{ display: 'flex', gap: '8px', fontSize: '0.78rem' }}>
+                  <span style={{ padding: '3px 10px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: 'var(--radius-full)' }}>
+                    📸 <strong>{pins.length}</strong> Pines en total
+                  </span>
+                  <span style={{ padding: '3px 10px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: 'var(--radius-full)' }}>
+                    📁 <strong>{folders.length}</strong> Carpetas activas
+                  </span>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => onDeleteAllPins && onDeleteAllPins(null)}
+                  style={{
+                    background: 'rgba(239, 68, 68, 0.15)',
+                    color: '#f87171',
+                    border: '1px solid rgba(239, 68, 68, 0.4)',
+                    padding: '8px 14px',
+                    borderRadius: 'var(--radius-full)',
+                    fontSize: '0.8rem',
+                    fontWeight: 700,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    cursor: 'pointer'
+                  }}
+                  title="Eliminar permanentemente todos los pines de la base de datos"
+                >
+                  <Trash2 size={14} />
+                  <span>Eliminar TODOS los Pines ({pins.length})</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onResetInitialPins && onResetInitialPins()}
+                  style={{
+                    background: 'rgba(245, 158, 11, 0.15)',
+                    color: '#fbbf24',
+                    border: '1px solid rgba(245, 158, 11, 0.4)',
+                    padding: '8px 14px',
+                    borderRadius: 'var(--radius-full)',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    cursor: 'pointer'
+                  }}
+                  title="Restablecer los pines y fotos oficiales de Olivia"
+                >
+                  <RotateCcw size={14} />
+                  <span>Restablecer Pines Oficiales</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onDeleteAllCustomFolders && onDeleteAllCustomFolders()}
+                  style={{
+                    background: 'rgba(139, 92, 246, 0.15)',
+                    color: '#c4b5fd',
+                    border: '1px solid rgba(139, 92, 246, 0.4)',
+                    padding: '8px 14px',
+                    borderRadius: 'var(--radius-full)',
+                    fontSize: '0.8rem',
+                    fontWeight: 600,
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    cursor: 'pointer'
+                  }}
+                  title="Eliminar carpetas creadas y volver a las predeterminadas"
+                >
+                  <Folder size={14} />
+                  <span>Restablecer Carpetas</span>
+                </button>
+              </div>
+            </div>
+
+            {/* FOLDERS MANAGEMENT */}
+            <div style={{ marginBottom: '22px' }}>
+              <h3 style={{ fontSize: '0.92rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '10px' }}>
+                <Folder size={15} color="#fbbf24" />
+                <span>Gestión de Carpetas ({folders.length})</span>
+              </h3>
+
+              <div style={{
+                maxHeight: '190px',
+                overflowY: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px',
+                background: 'rgba(0, 0, 0, 0.25)',
+                padding: '10px',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-subtle)'
+              }}>
+                {folders.map((f) => {
+                  const folderPinsCount = f.slug ? pins.filter(p => p.cloudinaryFolder === f.slug).length : pins.length;
+                  const isAll = f.id === 'all';
+
+                  return (
+                    <div
+                      key={f.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '8px 12px',
+                        background: 'rgba(255, 255, 255, 0.03)',
+                        borderRadius: 'var(--radius-sm)',
+                        fontSize: '0.82rem',
+                        gap: '8px',
+                        flexWrap: 'wrap'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Folder size={14} color={f.color || '#fbbf24'} />
+                        <strong style={{ color: '#fff' }}>{f.name}</strong>
+                        <span style={{ color: 'var(--text-dim)', fontSize: '0.74rem' }}>
+                          ({f.slug || 'General'})
+                        </span>
+                        <span style={{
+                          background: 'rgba(255, 255, 255, 0.08)',
+                          color: '#fff',
+                          padding: '1px 6px',
+                          borderRadius: 'var(--radius-full)',
+                          fontSize: '0.7rem',
+                          fontWeight: 700
+                        }}>
+                          {folderPinsCount} fotos
+                        </span>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        {/* Empty folder pins */}
+                        {f.slug && folderPinsCount > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => onDeleteAllPins && onDeleteAllPins(f.slug)}
+                            className="btn-secondary"
+                            style={{ fontSize: '0.72rem', padding: '4px 8px', color: '#f87171' }}
+                            title={`Eliminar las ${folderPinsCount} fotos de esta carpeta`}
+                          >
+                            Vaciar fotos
+                          </button>
+                        )}
+
+                        {/* Delete folder */}
+                        {!isAll && (
+                          <button
+                            type="button"
+                            onClick={() => onDeleteFolder && onDeleteFolder(f)}
+                            style={{
+                              background: 'rgba(239, 68, 68, 0.12)',
+                              color: '#ef4444',
+                              border: '1px solid rgba(239, 68, 68, 0.25)',
+                              padding: '4px 8px',
+                              borderRadius: 'var(--radius-sm)',
+                              fontSize: '0.72rem',
+                              cursor: 'pointer',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}
+                            title={`Eliminar carpeta "${f.name}"`}
+                          >
+                            <Trash2 size={11} />
+                            <span>Eliminar</span>
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* PINS MANAGEMENT (INDIVIDUAL PINS LIST) */}
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px', gap: '8px', flexWrap: 'wrap' }}>
+                <h3 style={{ fontSize: '0.92rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Image size={15} color="#60a5fa" />
+                  <span>Eliminar Fotos Individuales ({pins.length})</span>
+                </h3>
+
+                <input
+                  type="text"
+                  placeholder="Buscar foto por título..."
+                  value={pinSearch}
+                  onChange={(e) => setPinSearch(e.target.value)}
+                  style={{
+                    background: '#11151c',
+                    border: '1px solid var(--border-subtle)',
+                    borderRadius: 'var(--radius-full)',
+                    padding: '4px 12px',
+                    fontSize: '0.78rem',
+                    width: '200px'
+                  }}
+                />
+              </div>
+
+              <div style={{
+                maxHeight: '220px',
+                overflowY: 'auto',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '6px',
+                background: 'rgba(0, 0, 0, 0.25)',
+                padding: '10px',
+                borderRadius: 'var(--radius-md)',
+                border: '1px solid var(--border-subtle)',
+                marginBottom: '16px'
+              }}>
+                {pins
+                  .filter((p) => {
+                    if (!pinSearch.trim()) return true;
+                    const q = pinSearch.toLowerCase();
+                    return p.title?.toLowerCase().includes(q) || p.cloudinaryFolder?.toLowerCase().includes(q);
+                  })
+                  .map((p) => (
+                    <div
+                      key={p.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: '6px 10px',
+                        background: 'rgba(255, 255, 255, 0.03)',
+                        borderRadius: 'var(--radius-sm)',
+                        fontSize: '0.8rem',
+                        gap: '10px'
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', overflow: 'hidden' }}>
+                        <img
+                          src={p.imageUrl}
+                          alt={p.title}
+                          style={{ width: '38px', height: '38px', borderRadius: '4px', objectFit: 'cover', flexShrink: 0, background: '#111' }}
+                        />
+                        <div style={{ overflow: 'hidden' }}>
+                          <strong style={{ color: '#fff', display: 'block', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>
+                            {p.title}
+                          </strong>
+                          <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                            {p.cloudinaryFolder || 'general'} • por {p.author?.name || 'Olivia'}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
+                        <button
+                          type="button"
+                          onClick={() => onToggleVisibility && onToggleVisibility(p)}
+                          style={{
+                            background: p.visibility === 'members' ? 'rgba(139, 92, 246, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                            color: p.visibility === 'members' ? '#c4b5fd' : '#34d399',
+                            border: p.visibility === 'members' ? '1px solid rgba(139, 92, 246, 0.35)' : '1px solid rgba(16, 185, 129, 0.35)',
+                            padding: '4px 8px',
+                            borderRadius: 'var(--radius-sm)',
+                            fontSize: '0.72rem',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                          title={p.visibility === 'members' ? "Clic para hacerla Pública para todos" : "Clic para hacerla Solo para Miembros Registrados"}
+                        >
+                          {p.visibility === 'members' ? <Lock size={11} /> : <Globe size={11} />}
+                          <span>{p.visibility === 'members' ? 'Solo Miembros' : 'Pública'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => onDeletePin && onDeletePin(p)}
+                          style={{
+                            background: 'rgba(239, 68, 68, 0.12)',
+                            color: '#ef4444',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
+                            padding: '5px 9px',
+                            borderRadius: 'var(--radius-sm)',
+                            fontSize: '0.75rem',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                          title={`Eliminar pin "${p.title}"`}
+                        >
+                          <Trash2 size={12} />
+                          <span>Eliminar</span>
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+              </div>
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
