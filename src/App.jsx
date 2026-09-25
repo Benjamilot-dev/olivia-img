@@ -11,6 +11,7 @@ import PendingApprovalModal from './components/PendingApprovalModal';
 import MobileBottomNav from './components/MobileBottomNav';
 import Toast from './components/Toast';
 import ConfirmModal from './components/ConfirmModal';
+import EditFolderModal from './components/EditFolderModal';
 import { Lock, LogIn, Sparkles, Trash2, Folder as FolderIcon } from 'lucide-react';
 
 import { INITIAL_PINS } from './data/initialPins';
@@ -111,6 +112,7 @@ export default function App() {
   const [authReason, setAuthReason] = useState(''); // 'upload' | 'folder' | ''
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isPendingModalOpen, setIsPendingModalOpen] = useState(false);
+  const [editingFolder, setEditingFolder] = useState(null);
 
   // Auth, Roles & Approval state
   const [user, setUser] = useState(null);
@@ -214,6 +216,37 @@ export default function App() {
       return () => unsubscribe();
     } catch (e) {
       console.warn("RTDB sync fallback to local store:", e);
+    }
+  }, []);
+
+  // Sync Folders with Firebase Realtime Database
+  useEffect(() => {
+    try {
+      const foldersRef = ref(database, 'folders');
+      const unsubscribe = onValue(foldersRef, (snapshot) => {
+        const val = snapshot.val();
+        if (val) {
+          let loadedFolders = [];
+          if (Array.isArray(val)) {
+            loadedFolders = val.filter(Boolean);
+          } else if (typeof val === 'object') {
+            loadedFolders = Object.keys(val).map((k) => ({
+              ...val[k],
+              id: val[k].id || k
+            }));
+          }
+          if (loadedFolders.length > 0) {
+            setFolders(loadedFolders);
+            localStorage.setItem('olivia_folders', JSON.stringify(loadedFolders));
+          }
+        }
+      }, (err) => {
+        console.warn("RTDB folders sync error:", err);
+      });
+
+      return () => unsubscribe();
+    } catch (e) {
+      console.warn("RTDB folders fallback to local store:", e);
     }
   }, []);
 
@@ -367,8 +400,12 @@ export default function App() {
       color: '#f59e0b',
       createdBy: user.displayName || user.email
     };
-    setFolders((prev) => [...prev, newFolder]);
+    const updatedFolders = [...folders, newFolder];
+    setFolders(updatedFolders);
     setActiveFolder(slug);
+    try {
+      set(ref(database, 'folders'), updatedFolders).catch(() => {});
+    } catch {}
     addToast(`Álbum "${folderName}" creado con éxito ✨`);
   };
 
@@ -520,7 +557,73 @@ export default function App() {
     });
   };
 
-  // 4. Delete single folder
+  // 4. Edit / Rename folder (Admin only)
+  const handleOpenEditFolder = (folder) => {
+    if (!isAdmin) {
+      addToast('Solo el Administrador puede modificar o actualizar carpetas', 'error');
+      return;
+    }
+    setEditingFolder(folder);
+  };
+
+  const handleUpdateFolder = (folderId, updatedData) => {
+    if (!isAdmin) {
+      addToast('Solo el Administrador puede modificar o actualizar carpetas', 'error');
+      return;
+    }
+
+    const targetFolder = folders.find((f) => f.id === folderId);
+    if (!targetFolder) return;
+
+    const oldSlug = targetFolder.slug;
+    const newSlug = updatedData.slug !== undefined ? updatedData.slug : oldSlug;
+    const newName = updatedData.name ? updatedData.name.trim() : targetFolder.name;
+
+    // If slug changed, update all pins assigned to this folder
+    if (newSlug !== oldSlug && oldSlug) {
+      const matchingPins = pins.filter((p) => p.cloudinaryFolder === oldSlug);
+      if (matchingPins.length > 0) {
+        matchingPins.forEach((p) => {
+          try {
+            update(ref(database, `pins/${p.id}`), { cloudinaryFolder: newSlug }).catch(() => {});
+          } catch {}
+        });
+        setPins((prev) =>
+          prev.map((p) => (p.cloudinaryFolder === oldSlug ? { ...p, cloudinaryFolder: newSlug } : p))
+        );
+      }
+
+      if (activeFolder === oldSlug) {
+        setActiveFolder(newSlug);
+      }
+    }
+
+    const updatedFolders = folders.map((f) => {
+      if (f.id === folderId) {
+        return {
+          ...f,
+          name: newName,
+          icon: updatedData.icon || f.icon,
+          color: updatedData.color || f.color,
+          slug: newSlug,
+          updatedAt: Date.now(),
+          updatedBy: user?.displayName || user?.email || 'Admin'
+        };
+      }
+      return f;
+    });
+
+    setFolders(updatedFolders);
+
+    try {
+      set(ref(database, 'folders'), updatedFolders).catch((err) => console.warn(err));
+    } catch {}
+
+    setEditingFolder(null);
+    addToast(`Álbum "${newName}" actualizado con éxito ✨`);
+  };
+
+  // 5. Delete single folder (Admin only)
   const handleDeleteFolder = (folder) => {
     if (!isAdmin) {
       addToast('Solo el Administrador puede eliminar carpetas', 'error');
@@ -543,7 +646,11 @@ export default function App() {
           subtitle: '0 fotos asignadas'
         },
         onConfirm: () => {
-          setFolders((prev) => prev.filter((f) => f.id !== folder.id));
+          const remainingFolders = folders.filter((f) => f.id !== folder.id);
+          setFolders(remainingFolders);
+          try {
+            set(ref(database, 'folders'), remainingFolders).catch(() => {});
+          } catch {}
           if (activeFolder === folder.slug) {
             setActiveFolder('');
           }
@@ -572,7 +679,11 @@ export default function App() {
                 } catch {}
               });
               setPins((prev) => prev.filter((p) => p.cloudinaryFolder !== folder.slug));
-              setFolders((prev) => prev.filter((f) => f.id !== folder.id));
+              const remainingFolders = folders.filter((f) => f.id !== folder.id);
+              setFolders(remainingFolders);
+              try {
+                set(ref(database, 'folders'), remainingFolders).catch(() => {});
+              } catch {}
               if (activeFolder === folder.slug) setActiveFolder('');
               addToast(`Carpeta "${folder.name}" y sus ${folderPins.length} fotos eliminadas`);
             }
@@ -588,7 +699,11 @@ export default function App() {
                 } catch {}
               });
               setPins((prev) => prev.map((p) => p.cloudinaryFolder === folder.slug ? { ...p, cloudinaryFolder: 'olivia-cat/portraits' } : p));
-              setFolders((prev) => prev.filter((f) => f.id !== folder.id));
+              const remainingFolders = folders.filter((f) => f.id !== folder.id);
+              setFolders(remainingFolders);
+              try {
+                set(ref(database, 'folders'), remainingFolders).catch(() => {});
+              } catch {}
               if (activeFolder === folder.slug) setActiveFolder('');
               addToast(`Carpeta "${folder.name}" eliminada (fotos conservadas en galería)`);
             }
@@ -598,7 +713,7 @@ export default function App() {
     }
   };
 
-  // 5. Delete all custom folders
+  // 6. Delete all custom folders (Admin only)
   const handleDeleteAllCustomFolders = () => {
     if (!isAdmin) {
       addToast('Solo el Administrador puede restablecer carpetas', 'error');
@@ -613,6 +728,9 @@ export default function App() {
       variant: 'warning',
       onConfirm: () => {
         setFolders(DEFAULT_FOLDERS);
+        try {
+          set(ref(database, 'folders'), DEFAULT_FOLDERS).catch(() => {});
+        } catch {}
         setActiveFolder('');
         addToast('Carpetas restablecidas a las predeterminadas 📁');
       }
@@ -776,6 +894,7 @@ export default function App() {
         activeFolder={activeFolder}
         onSelectFolder={(slug) => setActiveFolder(slug)}
         onAddFolder={handleAddFolder}
+        onEditFolder={handleOpenEditFolder}
         getPinsCountByFolder={getPinsCountByFolder}
         user={user}
         isApproved={isApproved}
@@ -1008,9 +1127,24 @@ export default function App() {
         onDeleteAllPins={handleDeleteAllPins}
         onResetInitialPins={handleResetInitialPins}
         onDeleteFolder={handleDeleteFolder}
+        onEditFolder={handleOpenEditFolder}
         onDeleteAllCustomFolders={handleDeleteAllCustomFolders}
         onToggleVisibility={handleTogglePinVisibility}
         addToast={addToast}
+      />
+
+      {/* Edit Folder Modal - ADMIN ONLY */}
+      <EditFolderModal
+        isOpen={Boolean(editingFolder)}
+        folder={editingFolder}
+        pinsCount={editingFolder ? getPinsCountByFolder(editingFolder.slug) : 0}
+        onClose={() => setEditingFolder(null)}
+        onSave={(updatedData) => handleUpdateFolder(editingFolder.id, updatedData)}
+        onDelete={(folderToDelete) => {
+          setEditingFolder(null);
+          handleDeleteFolder(folderToDelete);
+        }}
+        isAdmin={isAdmin}
       />
 
       {/* Confirmation & Alert Modal Dialog */}

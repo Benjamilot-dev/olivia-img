@@ -22,7 +22,8 @@ import {
   RotateCcw,
   Layers,
   Sparkles,
-  Globe
+  Globe,
+  Pencil
 } from 'lucide-react';
 import { getCloudinaryConfig, saveCloudinaryConfig } from '../services/cloudinary';
 import { firebaseConfig } from '../firebase/config';
@@ -47,6 +48,7 @@ export default function SettingsModal({
   onDeleteAllPins,
   onResetInitialPins,
   onDeleteFolder,
+  onEditFolder,
   onDeleteAllCustomFolders,
   onToggleVisibility,
   addToast
@@ -920,6 +922,28 @@ export default function SettingsModal({
                             Vaciar fotos
                           </button>
                         )}
+
+                        {/* Edit folder (Admin) */}
+                        <button
+                          type="button"
+                          onClick={() => onEditFolder && onEditFolder(f)}
+                          style={{
+                            background: 'rgba(59, 130, 246, 0.12)',
+                            color: '#60a5fa',
+                            border: '1px solid rgba(59, 130, 246, 0.28)',
+                            padding: '4px 8px',
+                            borderRadius: 'var(--radius-sm)',
+                            fontSize: '0.72rem',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                          title={`Modificar nombre de carpeta "${f.name}"`}
+                        >
+                          <Pencil size={11} />
+                          <span>Editar</span>
+                        </button>
 
                         {/* Delete folder */}
                         {!isAll && (

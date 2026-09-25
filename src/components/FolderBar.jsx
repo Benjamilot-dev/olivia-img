@@ -10,7 +10,14 @@ import {
   FolderPlus,
   Folder,
   Lock,
-  Trash2
+  Trash2,
+  Pencil,
+  Heart,
+  Camera,
+  Star,
+  Award,
+  Flame,
+  Sun
 } from 'lucide-react';
 
 const ICON_MAP = {
@@ -21,7 +28,13 @@ const ICON_MAP = {
   Coffee,
   Zap,
   Smile,
-  Folder
+  Folder,
+  Heart,
+  Camera,
+  Star,
+  Award,
+  Flame,
+  Sun
 };
 
 export default function FolderBar({
@@ -29,6 +42,7 @@ export default function FolderBar({
   activeFolder,
   onSelectFolder,
   onAddFolder,
+  onEditFolder,
   getPinsCountByFolder,
   user,
   isApproved = false,
@@ -86,26 +100,77 @@ export default function FolderBar({
             <IconComponent size={15} color={isActive ? '#111' : (folder.color || 'var(--text-muted)')} />
             <span>{folder.name}</span>
             <span className="folder-pill-badge">{count}</span>
-            {isAdmin && folder.id !== 'all' && (
+
+            {/* Admin Exclusive: Modify / Rename & Delete Folder */}
+            {isAdmin && (
               <span
-                role="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (onDeleteFolder) onDeleteFolder(folder);
-                }}
-                title={`Eliminar carpeta "${folder.name}" (Admin)`}
+                className="folder-admin-actions"
                 style={{
-                  marginLeft: '4px',
-                  padding: '2px 4px',
-                  borderRadius: '50%',
                   display: 'inline-flex',
                   alignItems: 'center',
-                  justifyContent: 'center',
-                  color: isActive ? '#ef4444' : 'var(--text-muted)',
-                  cursor: 'pointer'
+                  gap: '3px',
+                  marginLeft: '4px'
                 }}
               >
-                <Trash2 size={11} />
+                {/* Edit / Rename folder */}
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (onEditFolder) onEditFolder(folder);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.stopPropagation();
+                      if (onEditFolder) onEditFolder(folder);
+                    }
+                  }}
+                  title={`Modificar nombre de carpeta "${folder.name}" (Admin)`}
+                  className="folder-action-btn folder-action-edit"
+                  style={{
+                    padding: '2px 4px',
+                    borderRadius: '50%',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    color: isActive ? '#1d4ed8' : 'var(--text-muted)',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <Pencil size={11} />
+                </span>
+
+                {/* Delete folder (except 'all') */}
+                {folder.id !== 'all' && (
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onDeleteFolder) onDeleteFolder(folder);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.stopPropagation();
+                        if (onDeleteFolder) onDeleteFolder(folder);
+                      }
+                    }}
+                    title={`Eliminar carpeta "${folder.name}" (Admin)`}
+                    className="folder-action-btn folder-action-delete"
+                    style={{
+                      padding: '2px 4px',
+                      borderRadius: '50%',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: isActive ? '#ef4444' : 'var(--text-muted)',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <Trash2 size={11} />
+                  </span>
+                )}
               </span>
             )}
           </button>

@@ -561,6 +561,42 @@ input, textarea, select {
   background: rgba(0, 0, 0, 0.12);
 }
 
+.folder-admin-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 4px;
+}
+
+.folder-action-btn {
+  padding: 2px 4px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0.75;
+  transition: all var(--transition-fast);
+  cursor: pointer;
+}
+
+.folder-action-btn:hover {
+  opacity: 1;
+  transform: scale(1.2);
+  background: rgba(255, 255, 255, 0.15);
+}
+
+.folder-pill.active .folder-action-btn:hover {
+  background: rgba(0, 0, 0, 0.1);
+}
+
+.folder-action-edit:hover {
+  color: #2563eb !important;
+}
+
+.folder-action-delete:hover {
+  color: #ef4444 !important;
+}
+
 .folder-add-btn {
   display: inline-flex;
   align-items: center;
