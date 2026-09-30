@@ -23,6 +23,7 @@ import {
   Layers,
   ArrowRight
 } from 'lucide-react';
+import { sanitizeText } from '../utils/security';
 
 export const FOLDER_ICONS = [
   { name: 'Folder', icon: Folder, label: 'Carpeta' },
@@ -132,10 +133,10 @@ export default function EditFolderModal({
     }
 
     onSave({
-      name: name.trim(),
+      name: sanitizeText(name.trim(), 60),
       icon,
       color,
-      slug: isAllFolder ? '' : projectedSlug
+      slug: isAllFolder ? '' : sanitizeText(projectedSlug, 80).toLowerCase().replace(/[^a-z0-9/_-]/g, '')
     });
   };
 

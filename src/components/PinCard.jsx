@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import UserAvatar from './UserAvatar';
 import { Heart, Bookmark, Share2, Download, Cloud, Trash2, Globe, Lock, Pencil } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { isSafeUrl, sanitizeText, safeOpenUrl } from '../utils/security';
 
 export default function PinCard({
   pin,
@@ -57,7 +58,8 @@ export default function PinCard({
 
   const handleDownload = async (e) => {
     e.stopPropagation();
-    const safeFilename = `${(pin.title || 'olivia_pin').replace(/[^a-zA-Z0-9_\u00C0-\u017F-]/g, '_')}.jpg`;
+    if (!isSafeUrl(pin.imageUrl, true)) return;
+    const safeFilename = `${(sanitizeText(pin.title) || 'olivia_pin').replace(/[^a-zA-Z0-9_\u00C0-\u017F-]/g, '_')}.jpg`;
     try {
       if (pin.imageUrl.startsWith('data:')) {
         const link = document.createElement('a');
@@ -79,7 +81,7 @@ export default function PinCard({
       document.body.removeChild(link);
       setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
     } catch {
-      window.open(pin.imageUrl, '_blank');
+      safeOpenUrl(pin.imageUrl);
     }
   };
 

@@ -3,6 +3,7 @@ import UserAvatar from './UserAvatar';
 import { X, UploadCloud, Image as ImageIcon, Folder, Tag, AlertCircle, CheckCircle2, Loader2, Sparkles, Cloud, Globe, Lock } from 'lucide-react';
 import { uploadToCloudinary, getCloudinaryConfig } from '../services/cloudinary';
 import { compressImage } from '../utils/imageCompressor';
+import { sanitizePin } from '../utils/security';
 
 export default function UploadModal({
   isOpen,
@@ -116,7 +117,7 @@ export default function UploadModal({
         .filter(t => t.length > 0);
       if (!tagList.includes('olivia')) tagList.unshift('olivia');
 
-      const newPin = {
+      const rawPin = {
         id: 'pin_' + Date.now(),
         title: title.trim(),
         description: description.trim(),
@@ -137,6 +138,7 @@ export default function UploadModal({
         createdAt: new Date().toISOString()
       };
 
+      const newPin = sanitizePin(rawPin);
       onPinCreated(newPin);
       setIsUploading(false);
       onClose();

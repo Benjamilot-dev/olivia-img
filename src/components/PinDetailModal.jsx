@@ -24,6 +24,7 @@ import {
   Check
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
+import { isSafeUrl, sanitizeText, sanitizeComment, safeOpenUrl } from '../utils/security';
 
 export default function PinDetailModal({
   pin,
@@ -110,20 +111,21 @@ export default function PinDetailModal({
     e.preventDefault();
     if (!newComment.trim()) return;
 
-    const commentObj = {
+    const commentObj = sanitizeComment({
       id: 'c_' + Date.now(),
       author: user?.displayName || (user?.email ? user.email.split('@')[0] : 'Invitado Michi'),
       avatar: user?.photoURL || '/olivia-logo.png',
       text: newComment.trim(),
       date: 'Ahora'
-    };
+    });
 
     onAddComment(pin.id, commentObj);
     setNewComment('');
   };
 
   const handleDownload = async () => {
-    const safeFilename = `${(pin.title || 'olivia_pin').replace(/[^a-zA-Z0-9_\u00C0-\u017F-]/g, '_')}.jpg`;
+    if (!isSafeUrl(pin.imageUrl, true)) return;
+    const safeFilename = `${(sanitizeText(pin.title) || 'olivia_pin').replace(/[^a-zA-Z0-9_\u00C0-\u017F-]/g, '_')}.jpg`;
     try {
       if (pin.imageUrl.startsWith('data:')) {
         const link = document.createElement('a');
@@ -145,7 +147,7 @@ export default function PinDetailModal({
       document.body.removeChild(link);
       setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
     } catch {
-      window.open(pin.imageUrl, '_blank');
+      safeOpenUrl(pin.imageUrl);
     }
   };
 
@@ -220,9 +222,12 @@ export default function PinDetailModal({
                 {copiedLink ? <Check size={16} /> : <Link2 size={16} />}
               </button>
               <a
-                href={pin.imageUrl}
+                href={isSafeUrl(pin.imageUrl) ? pin.imageUrl : '#'}
+                onClick={(e) => {
+                  if (!isSafeUrl(pin.imageUrl)) e.preventDefault();
+                }}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 className="btn-icon"
                 title="Abrir imagen original"
               >
@@ -484,7 +489,16 @@ export default function PinDetailModal({
             <button className="btn-icon" onClick={handleDownload} title="Descargar">
               <Download size={16} />
             </button>
-            <a href={pin.imageUrl} target="_blank" rel="noreferrer" className="btn-icon" title="Abrir original">
+            <a
+              href={isSafeUrl(pin.imageUrl) ? pin.imageUrl : '#'}
+              onClick={(e) => {
+                if (!isSafeUrl(pin.imageUrl)) e.preventDefault();
+              }}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn-icon"
+              title="Abrir original"
+            >
               <ExternalLink size={16} />
             </a>
             {canManage && (

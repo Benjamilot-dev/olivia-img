@@ -23,6 +23,7 @@ import { safeStorage, cachePinsSafely } from './services/storage';
 import { compressDataUrl } from './utils/imageCompressor';
 import { onAuthStateChanged } from 'firebase/auth';
 import { ref, onValue, set, update, remove } from 'firebase/database';
+import { sanitizePin, sanitizeComment, sanitizeFolder, sanitizeText, isSafeUrl } from './utils/security';
 
 export default function App() {
   const searchInputRef = useRef(null);
@@ -118,13 +119,13 @@ export default function App() {
       if (saved) {
         if (saved.length > 500000 || saved.includes('data:image/')) {
           safeStorage.removeItem('olivia_pins');
-          return INITIAL_PINS.filter((p) => !deletedIds.has(p.id));
+          return INITIAL_PINS.filter((p) => !deletedIds.has(p.id)).map(sanitizePin);
         }
-        return JSON.parse(saved).filter((p) => !deletedIds.has(p.id));
+        return JSON.parse(saved).filter((p) => !deletedIds.has(p.id)).map(sanitizePin);
       }
-      return INITIAL_PINS.filter((p) => !deletedIds.has(p.id));
+      return INITIAL_PINS.filter((p) => !deletedIds.has(p.id)).map(sanitizePin);
     } catch {
-      return INITIAL_PINS;
+      return INITIAL_PINS.map(sanitizePin);
     }
   });
 
@@ -248,8 +249,9 @@ export default function App() {
             }
           });
 
-          setPins(merged);
-          cachePinsSafely(merged);
+          const sanitizedMerged = merged.map(sanitizePin).filter(Boolean);
+          setPins(sanitizedMerged);
+          cachePinsSafely(sanitizedMerged);
 
           // Auto-optimizer for heavy base64 pins (e.g. uploaded before client compression)
           merged.forEach((pin) => {
@@ -415,11 +417,12 @@ export default function App() {
   };
 
   const handlePinCreated = (newPin) => {
-    setPins((prev) => [newPin, ...prev]);
+    const cleanPin = sanitizePin(newPin);
+    setPins((prev) => [cleanPin, ...prev]);
 
     try {
-      const newPinRef = ref(database, `pins/${newPin.id}`);
-      set(newPinRef, newPin).catch(() => {});
+      const newPinRef = ref(database, `pins/${cleanPin.id}`);
+      set(newPinRef, cleanPin).catch(() => {});
     } catch {}
 
     addToast('¡Pin publicado con éxito en la galería oficial! 🐱');
@@ -427,6 +430,8 @@ export default function App() {
 
   // Permission guarded Folder creation handler
   const handleAddFolder = (folderName) => {
+    const cleanName = sanitizeText(folderName, 60);
+    if (!cleanName) return;
     if (!user) {
       handleRequireAuth('folder');
       addToast('Inicia sesión con Google para crear álbumes', 'info');
@@ -456,10 +461,13 @@ export default function App() {
   };
 
   const handleAddComment = (pinId, commentObj) => {
+    const cleanComment = sanitizeComment(commentObj);
+    if (!cleanComment) return;
+
     setPins((prevPins) =>
       prevPins.map((p) => {
         if (p.id === pinId) {
-          const updatedComments = [...(p.comments || []), commentObj];
+          const updatedComments = [...(p.comments || []), cleanComment];
           try {
             update(ref(database, `pins/${pinId}`), { comments: updatedComments }).catch(() => {});
           } catch {}
@@ -472,7 +480,7 @@ export default function App() {
     if (selectedPin && selectedPin.id === pinId) {
       setSelectedPin((prev) => ({
         ...prev,
-        comments: [...(prev.comments || []), commentObj]
+        comments: [...(prev.comments || []), cleanComment]
       }));
     }
 
@@ -860,8 +868,17 @@ export default function App() {
 
   // 7. Update Pin (Edit title, description, tags, album/folder, visibility)
   const handleUpdatePin = (pinId, updatedData) => {
+    // Sanitize any updated fields
+    const safeData = {};
+    if (updatedData.title !== undefined) safeData.title = sanitizeText(updatedData.title, 120);
+    if (updatedData.description !== undefined) safeData.description = sanitizeText(updatedData.description, 1000);
+    if (updatedData.cloudinaryFolder !== undefined) safeData.cloudinaryFolder = sanitizeText(updatedData.cloudinaryFolder, 80);
+    if (updatedData.visibility !== undefined) safeData.visibility = updatedData.visibility === 'members' ? 'members' : 'public';
+    if (updatedData.tags !== undefined) safeData.tags = Array.isArray(updatedData.tags) ? updatedData.tags.map(t => sanitizeText(t, 40)) : [];
+    if (updatedData.updatedAt !== undefined) safeData.updatedAt = sanitizeText(updatedData.updatedAt, 50);
+
     try {
-      update(ref(database, `pins/${pinId}`), updatedData).catch((err) => {
+      update(ref(database, `pins/${pinId}`), safeData).catch((err) => {
         console.warn('RTDB pin update error:', err);
       });
     } catch (e) {
@@ -869,11 +886,11 @@ export default function App() {
     }
 
     setPins((prev) =>
-      prev.map((p) => (p.id === pinId ? { ...p, ...updatedData } : p))
+      prev.map((p) => (p.id === pinId ? { ...p, ...safeData } : p))
     );
 
     if (selectedPin && selectedPin.id === pinId) {
-      setSelectedPin((prev) => ({ ...prev, ...updatedData }));
+      setSelectedPin((prev) => ({ ...prev, ...safeData }));
     }
 
     addToast('Pin actualizado y movido con éxito ✨');

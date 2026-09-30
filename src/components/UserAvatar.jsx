@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { isSafeUrl } from '../utils/security';
 
 export default function UserAvatar({
   user,
@@ -15,8 +16,8 @@ export default function UserAvatar({
   const name = directName || user?.displayName || user?.email || author?.name || 'Usuario';
   const initial = (name.trim().charAt(0) || 'O').toUpperCase();
 
-  // If valid avatar URL and hasn't errored
-  if (photoUrl && !hasError) {
+  // If valid safe avatar URL and hasn't errored
+  if (photoUrl && isSafeUrl(photoUrl) && !hasError) {
     return (
       <img
         src={photoUrl}

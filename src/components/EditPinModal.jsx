@@ -9,10 +9,11 @@ import {
   Lock, 
   Trash2, 
   Sparkles, 
-  FolderPlus,
-  Info,
-  Calendar
+  FolderPlus, 
+  Info, 
+  Calendar 
 } from 'lucide-react';
+import { sanitizeText, sanitizeTags } from '../utils/security';
 
 export default function EditPinModal({
   isOpen,
@@ -72,11 +73,11 @@ export default function EditPinModal({
     }
 
     const updatedData = {
-      title: title.trim(),
-      description: description.trim(),
-      cloudinaryFolder: selectedFolder.trim(), // '' means without album / General gallery
-      visibility: visibility,
-      tags: processedTags,
+      title: sanitizeText(title.trim(), 120),
+      description: sanitizeText(description.trim(), 1000),
+      cloudinaryFolder: sanitizeText(selectedFolder.trim(), 80), // '' means without album / General gallery
+      visibility: visibility === 'members' ? 'members' : 'public',
+      tags: sanitizeTags(processedTags),
       updatedAt: new Date().toISOString()
     };
 
