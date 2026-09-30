@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import UserAvatar from './UserAvatar';
-import { Heart, Bookmark, Share2, Download, Cloud, Trash2, Globe, Lock } from 'lucide-react';
+import { Heart, Bookmark, Share2, Download, Cloud, Trash2, Globe, Lock, Pencil } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 export default function PinCard({
@@ -14,7 +14,8 @@ export default function PinCard({
   isAdmin = false,
   user = null,
   onDeletePin,
-  onToggleVisibility
+  onToggleVisibility,
+  onEditPin
 }) {
   const [imgLoaded, setImgLoaded] = useState(false);
 
@@ -89,7 +90,7 @@ export default function PinCard({
     }
   };
 
-  const folderName = pin.cloudinaryFolder ? pin.cloudinaryFolder.split('/').pop() : 'general';
+  const folderName = pin.cloudinaryFolder ? pin.cloudinaryFolder.split('/').pop() : 'Sin Álbum';
 
   return (
     <div className="pin-card-wrapper">
@@ -183,6 +184,20 @@ export default function PinCard({
                 </button>
                 {canManage && (
                   <>
+                    <button
+                      className="pin-action-btn-circle"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (onEditPin) onEditPin(pin);
+                      }}
+                      style={{
+                        background: 'rgba(245, 158, 11, 0.95)',
+                        color: '#fff'
+                      }}
+                      title="Editar Pin y cambiar Álbum ✏️"
+                    >
+                      <Pencil size={13} />
+                    </button>
                     <button
                       className="pin-action-btn-circle"
                       onClick={(e) => {

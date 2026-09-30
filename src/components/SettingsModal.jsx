@@ -51,6 +51,7 @@ export default function SettingsModal({
   onEditFolder,
   onDeleteAllCustomFolders,
   onToggleVisibility,
+  onEditPin,
   addToast
 }) {
   const currentConfig = getCloudinaryConfig();
@@ -1068,6 +1069,27 @@ export default function SettingsModal({
                         >
                           {p.visibility === 'members' ? <Lock size={11} /> : <Globe size={11} />}
                           <span>{p.visibility === 'members' ? 'Solo Miembros' : 'Pública'}</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => onEditPin && onEditPin(p)}
+                          style={{
+                            background: 'rgba(245, 158, 11, 0.12)',
+                            color: '#fbbf24',
+                            border: '1px solid rgba(245, 158, 11, 0.3)',
+                            padding: '4px 8px',
+                            borderRadius: 'var(--radius-sm)',
+                            fontSize: '0.72rem',
+                            cursor: 'pointer',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                          title={`Editar foto y cambiar de álbum "${p.title}"`}
+                        >
+                          <Pencil size={11} />
+                          <span>Editar</span>
                         </button>
 
                         <button

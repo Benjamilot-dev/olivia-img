@@ -14,7 +14,8 @@ export default function PinMasonry({
   isAdmin = false,
   user = null,
   onDeletePin,
-  onToggleVisibility
+  onToggleVisibility,
+  onEditPin
 }) {
   if (pins.length === 0) {
     return (
@@ -58,6 +59,7 @@ export default function PinMasonry({
             user={user}
             onDeletePin={onDeletePin}
             onToggleVisibility={onToggleVisibility}
+            onEditPin={onEditPin}
           />
         ))}
       </div>

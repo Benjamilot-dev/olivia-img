@@ -14,7 +14,8 @@ import {
   Sparkles,
   Trash2,
   Globe,
-  Lock
+  Lock,
+  Pencil
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -31,7 +32,8 @@ export default function PinDetailModal({
   user,
   isAdmin = false,
   onDeletePin,
-  onToggleVisibility
+  onToggleVisibility,
+  onEditPin
 }) {
   const [newComment, setNewComment] = useState('');
 
@@ -101,7 +103,7 @@ export default function PinDetailModal({
     }
   };
 
-  const folderName = pin.cloudinaryFolder || 'olivia-cat/portraits';
+  const albumLabel = pin.cloudinaryFolder ? pin.cloudinaryFolder.split('/').pop() : 'Sin Álbum';
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -152,6 +154,18 @@ export default function PinDetailModal({
                 <>
                   <button
                     className="btn-icon"
+                    onClick={() => onEditPin && onEditPin(pin)}
+                    style={{
+                      color: '#f59e0b',
+                      borderColor: 'rgba(245, 158, 11, 0.35)',
+                      background: 'rgba(245, 158, 11, 0.12)'
+                    }}
+                    title="Editar Pin y cambiar Álbum ✏️"
+                  >
+                    <Pencil size={15} />
+                  </button>
+                  <button
+                    className="btn-icon"
                     onClick={() => onToggleVisibility && onToggleVisibility(pin)}
                     style={{
                       color: pin.visibility === 'members' ? '#c4b5fd' : '#34d399',
@@ -200,9 +214,20 @@ export default function PinDetailModal({
 
           {/* Badges Row */}
           <div style={{ marginBottom: '12px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <span className="cloudinary-badge" title="Álbum">
+            <span
+              className="cloudinary-badge"
+              onClick={() => canManage && onEditPin && onEditPin(pin)}
+              style={{
+                cursor: canManage ? 'pointer' : 'default',
+                background: pin.cloudinaryFolder ? 'rgba(56, 189, 248, 0.12)' : 'rgba(148, 163, 184, 0.12)',
+                borderColor: pin.cloudinaryFolder ? 'rgba(56, 189, 248, 0.3)' : 'rgba(148, 163, 184, 0.25)',
+                color: pin.cloudinaryFolder ? '#38bdf8' : '#94a3b8'
+              }}
+              title={canManage ? "Clic para mover de Álbum o dejar Sin Álbum 📁✏️" : "Álbum"}
+            >
               <Cloud size={12} />
-              <span>Álbum: {folderName.split('/').pop()}</span>
+              <span>Álbum: {albumLabel}</span>
+              {canManage && <Pencil size={11} style={{ opacity: 0.8, marginLeft: 2 }} />}
             </span>
 
             {/* Visibility Badge (Interactive for author/admin) */}
@@ -371,6 +396,18 @@ export default function PinDetailModal({
             </a>
             {canManage && (
               <>
+                <button
+                  className="btn-icon"
+                  onClick={() => onEditPin && onEditPin(pin)}
+                  style={{
+                    color: '#f59e0b',
+                    borderColor: 'rgba(245, 158, 11, 0.35)',
+                    background: 'rgba(245, 158, 11, 0.12)'
+                  }}
+                  title="Editar y cambiar Álbum"
+                >
+                  <Pencil size={15} />
+                </button>
                 <button
                   className="btn-icon"
                   onClick={() => onToggleVisibility && onToggleVisibility(pin)}

@@ -12,6 +12,7 @@ import MobileBottomNav from './components/MobileBottomNav';
 import Toast from './components/Toast';
 import ConfirmModal from './components/ConfirmModal';
 import EditFolderModal from './components/EditFolderModal';
+import EditPinModal from './components/EditPinModal';
 import { Lock, LogIn, Sparkles, Trash2, Folder as FolderIcon } from 'lucide-react';
 
 import { INITIAL_PINS } from './data/initialPins';
@@ -154,6 +155,7 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isPendingModalOpen, setIsPendingModalOpen] = useState(false);
   const [editingFolder, setEditingFolder] = useState(null);
+  const [editingPin, setEditingPin] = useState(null);
 
   // Auth, Roles & Approval state
   const [user, setUser] = useState(null);
@@ -856,6 +858,27 @@ export default function App() {
     );
   };
 
+  // 7. Update Pin (Edit title, description, tags, album/folder, visibility)
+  const handleUpdatePin = (pinId, updatedData) => {
+    try {
+      update(ref(database, `pins/${pinId}`), updatedData).catch((err) => {
+        console.warn('RTDB pin update error:', err);
+      });
+    } catch (e) {
+      console.warn('RTDB pin update fallback:', e);
+    }
+
+    setPins((prev) =>
+      prev.map((p) => (p.id === pinId ? { ...p, ...updatedData } : p))
+    );
+
+    if (selectedPin && selectedPin.id === pinId) {
+      setSelectedPin((prev) => ({ ...prev, ...updatedData }));
+    }
+
+    addToast('Pin actualizado y movido con éxito ✨');
+  };
+
   const handleLogout = async () => {
     await logoutUser();
     setIsAdmin(false);
@@ -1125,6 +1148,7 @@ export default function App() {
         user={user}
         onDeletePin={handleDeletePin}
         onToggleVisibility={handleTogglePinVisibility}
+        onEditPin={(pin) => setEditingPin(pin)}
       />
 
       {/* Mobile Bottom Navigation Bar */}
@@ -1157,6 +1181,7 @@ export default function App() {
           isAdmin={isAdmin}
           onDeletePin={handleDeletePin}
           onToggleVisibility={handleTogglePinVisibility}
+          onEditPin={(pin) => setEditingPin(pin)}
         />
       )}
 
@@ -1219,6 +1244,7 @@ export default function App() {
         onEditFolder={handleOpenEditFolder}
         onDeleteAllCustomFolders={handleDeleteAllCustomFolders}
         onToggleVisibility={handleTogglePinVisibility}
+        onEditPin={(pin) => setEditingPin(pin)}
         addToast={addToast}
       />
 
@@ -1232,6 +1258,20 @@ export default function App() {
         onDelete={(folderToDelete) => {
           setEditingFolder(null);
           handleDeleteFolder(folderToDelete);
+        }}
+        isAdmin={isAdmin}
+      />
+
+      {/* Edit Pin Modal - Author & Admin */}
+      <EditPinModal
+        isOpen={Boolean(editingPin)}
+        pin={editingPin}
+        folders={folders}
+        onClose={() => setEditingPin(null)}
+        onSave={handleUpdatePin}
+        onDelete={(pinToDelete) => {
+          setEditingPin(null);
+          handleDeletePin(pinToDelete);
         }}
         isAdmin={isAdmin}
       />

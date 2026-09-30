@@ -95,16 +95,17 @@ export default function UploadModal({
       // Try uploading to Cloudinary
       if (file) {
         try {
-          const result = await uploadToCloudinary(file, targetFolder, (percent) => {
+          const result = await uploadToCloudinary(file, targetFolder || 'olivia-cat', (percent) => {
             setUploadProgress(percent);
           });
           finalImageUrl = result.url;
-          finalFolder = result.folder || targetFolder;
+          finalFolder = targetFolder ? (result.folder || targetFolder) : '';
         } catch (cloudErr) {
           console.warn("Cloudinary upload notice:", cloudErr);
           // If preset not yet created by user, fallback gracefully to data URL so pin is created
           setErrorMessage(`Aviso Cloudinary: ${cloudErr.message}. Se usará la imagen local para este Pin.`);
           finalImageUrl = previewUrl;
+          finalFolder = targetFolder;
         }
       }
 
@@ -297,6 +298,7 @@ export default function UploadModal({
                       }
                     }}
                   >
+                    <option value="">✨ Sin Álbum (Galería General)</option>
                     {folders.filter(f => f.slug).map(f => (
                       <option key={f.id} value={f.slug}>
                         📁 {f.name} ({f.slug})
