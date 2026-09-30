@@ -124,7 +124,7 @@ export default function PinDetailModal({
         <div className="pin-detail-info">
           {/* Top Actions Bar (Desktop & Tablet) */}
           <div className="pin-detail-header-actions">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="pin-detail-header-left">
               <button
                 className="btn-icon"
                 onClick={() => onShare(pin)}
@@ -151,22 +151,16 @@ export default function PinDetailModal({
               {canManage && (
                 <>
                   <button
-                    className="btn-secondary"
+                    className="btn-icon"
                     onClick={() => onToggleVisibility && onToggleVisibility(pin)}
                     style={{
-                      fontSize: '0.78rem',
-                      padding: '6px 12px',
                       color: pin.visibility === 'members' ? '#c4b5fd' : '#34d399',
-                      border: pin.visibility === 'members' ? '1px solid rgba(139, 92, 246, 0.4)' : '1px solid rgba(16, 185, 129, 0.4)',
-                      background: pin.visibility === 'members' ? 'rgba(139, 92, 246, 0.12)' : 'rgba(16, 185, 129, 0.12)',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '5px'
+                      borderColor: pin.visibility === 'members' ? 'rgba(139, 92, 246, 0.4)' : 'rgba(16, 185, 129, 0.4)',
+                      background: pin.visibility === 'members' ? 'rgba(139, 92, 246, 0.14)' : 'rgba(16, 185, 129, 0.14)'
                     }}
-                    title={pin.visibility === 'members' ? "Clic para hacerla pública" : "Clic para hacerla privada"}
+                    title={pin.visibility === 'members' ? "Foto Privada (Solo tú y Admin). Clic para hacerla Pública 🌍" : "Foto Pública. Clic para hacerla Privada (Solo tú y Admin) 🔒"}
                   >
-                    {pin.visibility === 'members' ? <Globe size={13} /> : <Lock size={13} />}
-                    <span>{pin.visibility === 'members' ? 'Hacer Pública' : 'Hacer Privada'}</span>
+                    {pin.visibility === 'members' ? <Lock size={16} /> : <Globe size={16} />}
                   </button>
                   <button
                     className="btn-icon"
@@ -180,7 +174,7 @@ export default function PinDetailModal({
               )}
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div className="pin-detail-header-right">
               <button
                 className={`btn-icon ${isLiked ? 'liked' : ''}`}
                 onClick={handleLike}
@@ -190,17 +184,13 @@ export default function PinDetailModal({
                   color: isLiked ? '#fff' : 'inherit'
                 }}
               >
-                <Heart size={17} fill={isLiked ? "currentColor" : "none"} />
+                <Heart size={16} fill={isLiked ? "currentColor" : "none"} />
               </button>
 
               <button
-                className={`btn-primary-pinterest ${isSaved ? 'saved' : ''}`}
+                className={`pin-detail-save-btn ${isSaved ? 'saved' : ''}`}
                 onClick={() => onSave(pin)}
-                style={{
-                  background: isSaved ? '#10b981' : 'var(--accent-pinterest)',
-                  padding: '8px 16px',
-                  fontSize: '0.85rem'
-                }}
+                title={isSaved ? "Pin guardado" : "Guardar este Pin"}
               >
                 <Bookmark size={15} fill={isSaved ? "currentColor" : "none"} />
                 <span>{isSaved ? "Guardado" : "Guardar"}</span>
@@ -215,19 +205,25 @@ export default function PinDetailModal({
               <span>Álbum: {folderName.split('/').pop()}</span>
             </span>
 
-            {/* Visibility Badge */}
-            <span style={{
-              background: pin.visibility === 'members' ? 'rgba(139, 92, 246, 0.15)' : 'rgba(16, 185, 129, 0.15)',
-              color: pin.visibility === 'members' ? '#c4b5fd' : '#34d399',
-              border: pin.visibility === 'members' ? '1px solid rgba(139, 92, 246, 0.35)' : '1px solid rgba(16, 185, 129, 0.35)',
-              padding: '3px 10px',
-              borderRadius: 'var(--radius-full)',
-              fontSize: '0.72rem',
-              fontWeight: 700,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '5px'
-            }}>
+            {/* Visibility Badge (Interactive for author/admin) */}
+            <span
+              onClick={() => canManage && onToggleVisibility && onToggleVisibility(pin)}
+              style={{
+                cursor: canManage ? 'pointer' : 'default',
+                background: pin.visibility === 'members' ? 'rgba(139, 92, 246, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                color: pin.visibility === 'members' ? '#c4b5fd' : '#34d399',
+                border: pin.visibility === 'members' ? '1px solid rgba(139, 92, 246, 0.35)' : '1px solid rgba(16, 185, 129, 0.35)',
+                padding: '3px 10px',
+                borderRadius: 'var(--radius-full)',
+                fontSize: '0.72rem',
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                transition: 'all var(--transition-fast)'
+              }}
+              title={canManage ? "Clic para cambiar estado de visibilidad" : ""}
+            >
               {pin.visibility === 'members' ? <Lock size={12} /> : <Globe size={12} />}
               <span>
                 {pin.visibility === 'members'
@@ -238,6 +234,7 @@ export default function PinDetailModal({
                     : 'Foto Privada'
                   : 'Pública para Todos'}
               </span>
+              {canManage && <span style={{ opacity: 0.7, fontSize: '0.68rem', marginLeft: '2px' }}>(Cambiar)</span>}
             </span>
 
             {pin.isOfficial && (
@@ -346,12 +343,12 @@ export default function PinDetailModal({
                 placeholder={user ? "Escribe un comentario..." : "Escribe como invitado..."}
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
-                style={{ borderRadius: 'var(--radius-full)', fontSize: '0.86rem', padding: '8px 14px' }}
+                style={{ borderRadius: 'var(--radius-full)', fontSize: '0.86rem', padding: '8px 14px', flex: 1, minWidth: 0 }}
               />
               <button
                 type="submit"
                 className="btn-primary-pinterest"
-                style={{ padding: '0 14px', borderRadius: 'var(--radius-full)' }}
+                style={{ padding: '0 14px', borderRadius: 'var(--radius-full)', flexShrink: 0 }}
                 title="Publicar"
               >
                 <Send size={14} />
@@ -362,25 +359,42 @@ export default function PinDetailModal({
 
         {/* Mobile Sticky Bottom Action Bar */}
         <div className="pin-detail-mobile-actions">
-          <div style={{ display: 'flex', gap: '6px' }}>
+          <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
             <button className="btn-icon" onClick={() => onShare(pin)} title="Compartir">
               <Share2 size={16} />
             </button>
             <button className="btn-icon" onClick={handleDownload} title="Descargar">
               <Download size={16} />
             </button>
-            {isAdmin && (
-              <button
-                className="btn-icon"
-                onClick={() => onDeletePin && onDeletePin(pin)}
-                style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.35)', background: 'rgba(239, 68, 68, 0.1)' }}
-                title="Eliminar Pin (Solo Admin)"
-              >
-                <Trash2 size={16} />
-              </button>
+            <a href={pin.imageUrl} target="_blank" rel="noreferrer" className="btn-icon" title="Abrir original">
+              <ExternalLink size={16} />
+            </a>
+            {canManage && (
+              <>
+                <button
+                  className="btn-icon"
+                  onClick={() => onToggleVisibility && onToggleVisibility(pin)}
+                  style={{
+                    color: pin.visibility === 'members' ? '#c4b5fd' : '#34d399',
+                    borderColor: pin.visibility === 'members' ? 'rgba(139, 92, 246, 0.4)' : 'rgba(16, 185, 129, 0.4)',
+                    background: pin.visibility === 'members' ? 'rgba(139, 92, 246, 0.14)' : 'rgba(16, 185, 129, 0.14)'
+                  }}
+                  title={pin.visibility === 'members' ? "Hacer pública" : "Hacer privada"}
+                >
+                  {pin.visibility === 'members' ? <Lock size={15} /> : <Globe size={15} />}
+                </button>
+                <button
+                  className="btn-icon"
+                  onClick={() => onDeletePin && onDeletePin(pin)}
+                  style={{ color: '#ef4444', borderColor: 'rgba(239, 68, 68, 0.35)', background: 'rgba(239, 68, 68, 0.1)' }}
+                  title="Eliminar Pin"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </>
             )}
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0 }}>
             <button
               className={`btn-icon ${isLiked ? 'liked' : ''}`}
               onClick={handleLike}
@@ -388,13 +402,14 @@ export default function PinDetailModal({
                 background: isLiked ? 'var(--accent-rose)' : 'var(--bg-card-hover)',
                 color: isLiked ? '#fff' : 'inherit'
               }}
+              title="Me gusta"
             >
               <Heart size={16} fill={isLiked ? "currentColor" : "none"} />
             </button>
             <button
-              className={`btn-primary-pinterest ${isSaved ? 'saved' : ''}`}
+              className={`pin-detail-save-btn ${isSaved ? 'saved' : ''}`}
               onClick={() => onSave(pin)}
-              style={{ padding: '8px 18px', fontSize: '0.85rem' }}
+              title={isSaved ? "Guardado" : "Guardar"}
             >
               <Bookmark size={15} fill={isSaved ? "currentColor" : "none"} />
               <span>{isSaved ? "Guardado" : "Guardar"}</span>

@@ -1044,7 +1044,7 @@ input, textarea, select {
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   max-width: 1040px;
-  width: 100%;
+  width: min(1040px, 96vw);
   max-height: 90vh;
   display: flex;
   overflow: hidden;
@@ -1053,7 +1053,8 @@ input, textarea, select {
 }
 
 .pin-detail-media {
-  flex: 1.2;
+  flex: 1.1;
+  min-width: 0;
   background: #0b0d11;
   display: flex;
   align-items: center;
@@ -1073,10 +1074,12 @@ input, textarea, select {
 
 .pin-detail-info {
   flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  padding: 24px;
+  padding: 20px 22px;
   overflow-y: auto;
+  overflow-x: hidden;
   background: var(--bg-card);
 }
 
@@ -1085,7 +1088,56 @@ input, textarea, select {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 16px;
-  gap: 12px;
+  gap: 8px 12px;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
+.pin-detail-header-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.pin-detail-header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.pin-detail-header-actions .btn-icon {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+}
+
+.pin-detail-save-btn {
+  background: var(--accent-pinterest);
+  color: #fff;
+  padding: 8px 16px;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  font-size: 0.86rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 4px 14px rgba(230, 0, 35, 0.35);
+  white-space: nowrap;
+  flex-shrink: 0;
+  transition: all var(--transition-fast);
+}
+
+.pin-detail-save-btn:hover {
+  background: var(--accent-pinterest-hover);
+  transform: translateY(-1px);
+}
+
+.pin-detail-save-btn.saved {
+  background: #10b981;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35);
 }
 
 .pin-detail-title {
