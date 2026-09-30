@@ -1257,6 +1257,37 @@ input, textarea, select {
   cursor: default;
 }
 
+.pin-theater-copied-badge {
+  position: absolute;
+  top: 14px;
+  background: rgba(16, 185, 129, 0.95);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  color: #ffffff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  padding: 8px 18px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6);
+  z-index: 340;
+  animation: slideInDown 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  pointer-events: none;
+}
+
+@keyframes slideInDown {
+  from {
+    opacity: 0;
+    transform: translateY(-12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .pin-detail-info {
   flex: 1;
   min-width: 0;

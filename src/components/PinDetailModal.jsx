@@ -19,7 +19,9 @@ import {
   Maximize2,
   Minimize2,
   ZoomIn,
-  ZoomOut
+  ZoomOut,
+  Link2,
+  Check
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -42,6 +44,24 @@ export default function PinDetailModal({
   const [newComment, setNewComment] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
   const [isZoomed, setIsZoomed] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  const handleCopyImageLink = async () => {
+    try {
+      await navigator.clipboard.writeText(pin.imageUrl);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2200);
+    } catch {
+      const input = document.createElement('input');
+      input.value = pin.imageUrl;
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand('copy');
+      document.body.removeChild(input);
+      setCopiedLink(true);
+      setTimeout(() => setCopiedLink(false), 2200);
+    }
+  };
 
   // Reset zoom whenever expanded state changes or pin changes
   useEffect(() => {
@@ -186,6 +206,18 @@ export default function PinDetailModal({
                 title="Descargar Foto"
               >
                 <Download size={16} />
+              </button>
+              <button
+                className="btn-icon"
+                onClick={handleCopyImageLink}
+                style={{
+                  color: copiedLink ? '#10b981' : undefined,
+                  borderColor: copiedLink ? 'rgba(16, 185, 129, 0.4)' : undefined,
+                  background: copiedLink ? 'rgba(16, 185, 129, 0.15)' : undefined
+                }}
+                title={copiedLink ? "¡Dirección copiada!" : "Copiar dirección de la imagen 🔗"}
+              >
+                {copiedLink ? <Check size={16} /> : <Link2 size={16} />}
               </button>
               <a
                 href={pin.imageUrl}
@@ -434,6 +466,18 @@ export default function PinDetailModal({
             <button className="btn-icon" onClick={() => setIsExpanded(true)} title="Ver más grande ajustado a la pantalla">
               <Maximize2 size={16} />
             </button>
+            <button
+              className="btn-icon"
+              onClick={handleCopyImageLink}
+              style={{
+                color: copiedLink ? '#10b981' : undefined,
+                borderColor: copiedLink ? 'rgba(16, 185, 129, 0.4)' : undefined,
+                background: copiedLink ? 'rgba(16, 185, 129, 0.15)' : undefined
+              }}
+              title={copiedLink ? "¡Dirección copiada!" : "Copiar dirección de la imagen"}
+            >
+              {copiedLink ? <Check size={16} /> : <Link2 size={16} />}
+            </button>
             <button className="btn-icon" onClick={() => onShare(pin)} title="Compartir">
               <Share2 size={16} />
             </button>
@@ -529,6 +573,18 @@ export default function PinDetailModal({
               </button>
               <button
                 className="btn-icon pin-theater-btn"
+                onClick={handleCopyImageLink}
+                style={{
+                  color: copiedLink ? '#10b981' : undefined,
+                  borderColor: copiedLink ? 'rgba(16, 185, 129, 0.4)' : undefined,
+                  background: copiedLink ? 'rgba(16, 185, 129, 0.22)' : undefined
+                }}
+                title={copiedLink ? "¡Dirección copiada al portapapeles!" : "Copiar dirección de la imagen 🔗"}
+              >
+                {copiedLink ? <Check size={16} /> : <Link2 size={16} />}
+              </button>
+              <button
+                className="btn-icon pin-theater-btn"
                 onClick={() => onShare(pin)}
                 title="Compartir foto"
               >
@@ -567,6 +623,12 @@ export default function PinDetailModal({
             className={`pin-theater-image-wrapper ${isZoomed ? 'zoomed' : ''}`}
             onClick={() => setIsExpanded(false)}
           >
+            {copiedLink && (
+              <div className="pin-theater-copied-badge" onClick={(e) => e.stopPropagation()}>
+                <Check size={14} />
+                <span>¡Dirección de la imagen copiada al portapapeles! 📋</span>
+              </div>
+            )}
             <img
               src={pin.imageUrl}
               alt={pin.title}
