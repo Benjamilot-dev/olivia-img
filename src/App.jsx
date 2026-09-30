@@ -71,18 +71,57 @@ export default function App() {
     safeStorage.cleanupHeavyCaches();
   }, []);
 
+  // Deleted pins state (tracks IDs of pins permanently deleted by admin/owner)
+  const [deletedPinIds, setDeletedPinIds] = useState(() => {
+    return safeStorage.getJSON('olivia_deleted_pins', []);
+  });
+  const deletedPinIdsRef = useRef(deletedPinIds);
+
+  useEffect(() => {
+    deletedPinIdsRef.current = deletedPinIds;
+    safeStorage.setJSON('olivia_deleted_pins', deletedPinIds);
+  }, [deletedPinIds]);
+
+  // Sync Deleted Pins with Firebase Realtime Database
+  useEffect(() => {
+    try {
+      const deletedRef = ref(database, 'deleted_pins');
+      const unsubscribe = onValue(deletedRef, (snapshot) => {
+        const val = snapshot.val();
+        if (val && typeof val === 'object') {
+          const ids = Object.keys(val);
+          setDeletedPinIds(ids);
+          deletedPinIdsRef.current = ids;
+          safeStorage.setJSON('olivia_deleted_pins', ids);
+          // Prune any deleted pins from local state
+          setPins((prev) => prev.filter((p) => !ids.includes(p.id)));
+        } else {
+          setDeletedPinIds([]);
+          deletedPinIdsRef.current = [];
+          safeStorage.setJSON('olivia_deleted_pins', []);
+        }
+      }, (err) => {
+        console.warn("RTDB deleted_pins sync error:", err);
+      });
+      return () => unsubscribe();
+    } catch (e) {
+      console.warn("RTDB deleted_pins listener fallback:", e);
+    }
+  }, []);
+
   // Pins state
   const [pins, setPins] = useState(() => {
     try {
+      const deletedIds = new Set(safeStorage.getJSON('olivia_deleted_pins', []));
       const saved = safeStorage.getItem('olivia_pins');
       if (saved) {
         if (saved.length > 500000 || saved.includes('data:image/')) {
           safeStorage.removeItem('olivia_pins');
-          return INITIAL_PINS;
+          return INITIAL_PINS.filter((p) => !deletedIds.has(p.id));
         }
-        return JSON.parse(saved);
+        return JSON.parse(saved).filter((p) => !deletedIds.has(p.id));
       }
-      return INITIAL_PINS;
+      return INITIAL_PINS.filter((p) => !deletedIds.has(p.id));
     } catch {
       return INITIAL_PINS;
     }
@@ -185,37 +224,44 @@ export default function App() {
       const unsubscribe = onValue(pinsRef, (snapshot) => {
         try {
           const val = snapshot.val();
-          if (val) {
-            const loadedPins = Object.keys(val).map((k) => ({
+          const deletedSet = new Set(deletedPinIdsRef.current || []);
+
+          let loadedPins = [];
+          if (val && typeof val === 'object') {
+            loadedPins = Object.keys(val).map((k) => ({
               ...val[k],
               id: val[k].id || k
             }));
-
-            const existingIds = new Set(loadedPins.map((p) => p.id));
-            const merged = [...loadedPins];
-            INITIAL_PINS.forEach((ip) => {
-              if (!existingIds.has(ip.id)) {
-                merged.push(ip);
-              }
-            });
-
-            setPins(merged);
-            cachePinsSafely(merged);
-
-            // Auto-optimizer for heavy base64 pins (e.g. uploaded before client compression)
-            merged.forEach((pin) => {
-              if (pin.imageUrl && pin.imageUrl.startsWith('data:image/') && pin.imageUrl.length > 400000) {
-                compressDataUrl(pin.imageUrl, { maxWidth: 1200, quality: 0.78 }).then((optimizedUrl) => {
-                  if (optimizedUrl && optimizedUrl.length < pin.imageUrl.length) {
-                    console.info(`[Auto-Optimizer] Recompressed oversized pin "${pin.title}" from ${(pin.imageUrl.length / 1024).toFixed(0)}KB to ${(optimizedUrl.length / 1024).toFixed(0)}KB`);
-                    try {
-                      update(ref(database, `pins/${pin.id}`), { imageUrl: optimizedUrl }).catch(() => {});
-                    } catch {}
-                  }
-                }).catch(() => {});
-              }
-            });
           }
+
+          // Filter out any pin that was marked deleted
+          const activeLoaded = loadedPins.filter((p) => !deletedSet.has(p.id));
+          const existingIds = new Set(activeLoaded.map((p) => p.id));
+          const merged = [...activeLoaded];
+
+          // Merge default initial pins ONLY if they haven't been deleted!
+          INITIAL_PINS.forEach((ip) => {
+            if (!existingIds.has(ip.id) && !deletedSet.has(ip.id)) {
+              merged.push(ip);
+            }
+          });
+
+          setPins(merged);
+          cachePinsSafely(merged);
+
+          // Auto-optimizer for heavy base64 pins (e.g. uploaded before client compression)
+          merged.forEach((pin) => {
+            if (pin.imageUrl && pin.imageUrl.startsWith('data:image/') && pin.imageUrl.length > 400000) {
+              compressDataUrl(pin.imageUrl, { maxWidth: 1200, quality: 0.78 }).then((optimizedUrl) => {
+                if (optimizedUrl && optimizedUrl.length < pin.imageUrl.length) {
+                  console.info(`[Auto-Optimizer] Recompressed oversized pin "${pin.title}" from ${(pin.imageUrl.length / 1024).toFixed(0)}KB to ${(optimizedUrl.length / 1024).toFixed(0)}KB`);
+                  try {
+                    update(ref(database, `pins/${pin.id}`), { imageUrl: optimizedUrl }).catch(() => {});
+                  } catch {}
+                }
+              }).catch(() => {});
+            }
+          });
         } catch (err) {
           console.warn("Error processing pins snapshot:", err);
         }
@@ -461,14 +507,27 @@ export default function App() {
       },
       onConfirm: () => {
         try {
+          // Remove from RTDB pins node
           remove(ref(database, `pins/${pin.id}`)).catch((err) => console.warn(err));
+          // Mark as permanently deleted in RTDB deleted_pins node
+          set(ref(database, `deleted_pins/${pin.id}`), {
+            deletedAt: new Date().toISOString(),
+            deletedBy: user?.displayName || user?.email || 'Admin',
+            title: pin.title || ''
+          }).catch(() => {});
         } catch {}
+
+        // Update local deleted ids
+        const updatedDeleted = Array.from(new Set([...deletedPinIdsRef.current, pin.id]));
+        setDeletedPinIds(updatedDeleted);
+        deletedPinIdsRef.current = updatedDeleted;
+        safeStorage.setJSON('olivia_deleted_pins', updatedDeleted);
 
         setPins((prev) => prev.filter((p) => p.id !== pin.id));
         if (selectedPin && selectedPin.id === pin.id) {
           setSelectedPin(null);
         }
-        addToast(`Pin "${pin.title}" eliminado de la base de datos 🗑️`);
+        addToast(`Pin "${pin.title}" eliminado definitivamente 🗑️`);
       }
     });
   };
@@ -499,31 +558,48 @@ export default function App() {
           subtitle: `${folderPins.length} fotos serán borradas`
         },
         onConfirm: () => {
-          folderPins.forEach((p) => {
+          if (folderSlug) {
+            const folderPins = pins.filter((p) => p.cloudinaryFolder === folderSlug);
+            const folderPinIds = folderPins.map((p) => p.id);
+            const updatedDeleted = Array.from(new Set([...deletedPinIdsRef.current, ...folderPinIds]));
+            setDeletedPinIds(updatedDeleted);
+            deletedPinIdsRef.current = updatedDeleted;
+            safeStorage.setJSON('olivia_deleted_pins', updatedDeleted);
+
+            folderPins.forEach((p) => {
+              try {
+                remove(ref(database, `pins/${p.id}`)).catch(() => {});
+                set(ref(database, `deleted_pins/${p.id}`), {
+                  deletedAt: new Date().toISOString(),
+                  folder: folderSlug
+                }).catch(() => {});
+              } catch {}
+            });
+
+            setPins((prev) => prev.filter((p) => p.cloudinaryFolder !== folderSlug));
+            addToast(`Se eliminaron ${folderPins.length} fotos de la carpeta 🗑️`);
+          } else {
+            // Delete ALL pins from gallery
+            const allPinIds = pins.map((p) => p.id);
+            const initialPinIds = INITIAL_PINS.map((ip) => ip.id);
+            const updatedDeleted = Array.from(new Set([...deletedPinIdsRef.current, ...allPinIds, ...initialPinIds]));
+            setDeletedPinIds(updatedDeleted);
+            deletedPinIdsRef.current = updatedDeleted;
+            safeStorage.setJSON('olivia_deleted_pins', updatedDeleted);
+
             try {
-              remove(ref(database, `pins/${p.id}`)).catch(() => {});
+              remove(ref(database, 'pins')).catch(() => {});
+              const deletedMap = {};
+              updatedDeleted.forEach((id) => {
+                deletedMap[id] = { deletedAt: new Date().toISOString() };
+              });
+              set(ref(database, 'deleted_pins'), deletedMap).catch(() => {});
             } catch {}
-          });
 
-          setPins((prev) => prev.filter((p) => p.cloudinaryFolder !== folderSlug));
-          addToast(`Se eliminaron ${folderPins.length} fotos de la carpeta 🗑️`);
-        }
-      });
-    } else {
-      openConfirm({
-        title: '¿Eliminar TODOS los Pines de la Galería?',
-        message: `⚠️ ADVERTENCIA: Estás a punto de borrar definitivamente las ${pins.length} fotos de toda la galería de Olivia.`,
-        confirmText: 'Sí, vaciar galería',
-        cancelText: 'Cancelar',
-        variant: 'danger',
-        onConfirm: () => {
-          try {
-            remove(ref(database, 'pins')).catch(() => {});
-          } catch {}
-
-          setPins([]);
-          if (selectedPin) setSelectedPin(null);
-          addToast('Todos los pines han sido eliminados de la galería 🗑️');
+            setPins([]);
+            if (selectedPin) setSelectedPin(null);
+            addToast('Todos los pines han sido eliminados de la galería 🗑️');
+          }
         }
       });
     }
@@ -544,11 +620,16 @@ export default function App() {
       variant: 'reset',
       onConfirm: () => {
         try {
+          // Clear deleted_pins so all initial pins can be restored
+          remove(ref(database, 'deleted_pins')).catch(() => {});
           INITIAL_PINS.forEach((ip) => {
             set(ref(database, `pins/${ip.id}`), ip).catch(() => {});
           });
         } catch {}
 
+        setDeletedPinIds([]);
+        deletedPinIdsRef.current = [];
+        safeStorage.setJSON('olivia_deleted_pins', []);
         setPins(INITIAL_PINS);
         addToast('Pines oficiales de Olivia restablecidos ✨');
       }
@@ -671,9 +752,19 @@ export default function App() {
             variant: 'danger',
             icon: <Trash2 size={16} />,
             onClick: () => {
+              const folderPinIds = folderPins.map((p) => p.id);
+              const updatedDeleted = Array.from(new Set([...deletedPinIdsRef.current, ...folderPinIds]));
+              setDeletedPinIds(updatedDeleted);
+              deletedPinIdsRef.current = updatedDeleted;
+              safeStorage.setJSON('olivia_deleted_pins', updatedDeleted);
+
               folderPins.forEach((p) => {
                 try {
                   remove(ref(database, `pins/${p.id}`)).catch(() => {});
+                  set(ref(database, `deleted_pins/${p.id}`), {
+                    deletedAt: new Date().toISOString(),
+                    folder: folder.slug
+                  }).catch(() => {});
                 } catch {}
               });
               setPins((prev) => prev.filter((p) => p.cloudinaryFolder !== folder.slug));
