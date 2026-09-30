@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import UserAvatar from './UserAvatar';
 import { 
   X, 
@@ -15,7 +15,11 @@ import {
   Trash2,
   Globe,
   Lock,
-  Pencil
+  Pencil,
+  Maximize2,
+  Minimize2,
+  ZoomIn,
+  ZoomOut
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
@@ -36,6 +40,28 @@ export default function PinDetailModal({
   onEditPin
 }) {
   const [newComment, setNewComment] = useState('');
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isZoomed, setIsZoomed] = useState(false);
+
+  // Reset zoom whenever expanded state changes or pin changes
+  useEffect(() => {
+    setIsZoomed(false);
+  }, [isExpanded, pin?.id]);
+
+  // Handle ESC key to exit expanded mode or close modal
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (isExpanded) {
+          setIsExpanded(false);
+        } else {
+          onClose();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isExpanded, onClose]);
 
   // Check if current user is the author or admin
   const isAuthor = Boolean(
@@ -113,13 +139,22 @@ export default function PinDetailModal({
       </button>
 
       <div className="pin-detail-card" onClick={(e) => e.stopPropagation()}>
-        {/* Left Side: Image Display */}
-        <div className="pin-detail-media">
+        {/* Left Side: Image Display (Click to expand fitted to screen) */}
+        <div
+          className="pin-detail-media"
+          onClick={() => setIsExpanded(true)}
+          title="Haz clic para ver más grande ajustado a la pantalla ⛶"
+        >
           <img
             src={pin.imageUrl}
             alt={pin.title}
             className="pin-detail-img"
           />
+
+          <div className="pin-media-expand-badge">
+            <Maximize2 size={13} />
+            <span>Ver más grande</span>
+          </div>
         </div>
 
         {/* Right Side: Details & Interaction */}
@@ -127,6 +162,17 @@ export default function PinDetailModal({
           {/* Top Actions Bar (Desktop & Tablet) */}
           <div className="pin-detail-header-actions">
             <div className="pin-detail-header-left">
+              <button
+                className="btn-icon"
+                onClick={() => setIsExpanded(true)}
+                title="Ver foto más grande ajustada a la pantalla ⛶"
+                style={{
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  borderColor: 'rgba(255, 255, 255, 0.2)'
+                }}
+              >
+                <Maximize2 size={16} />
+              </button>
               <button
                 className="btn-icon"
                 onClick={() => onShare(pin)}
@@ -385,6 +431,9 @@ export default function PinDetailModal({
         {/* Mobile Sticky Bottom Action Bar */}
         <div className="pin-detail-mobile-actions">
           <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+            <button className="btn-icon" onClick={() => setIsExpanded(true)} title="Ver más grande ajustado a la pantalla">
+              <Maximize2 size={16} />
+            </button>
             <button className="btn-icon" onClick={() => onShare(pin)} title="Compartir">
               <Share2 size={16} />
             </button>
@@ -454,6 +503,92 @@ export default function PinDetailModal({
           </div>
         </div>
       </div>
+
+      {/* Fullscreen Theater Lightbox: Foto más grande pero ajustada a la pantalla */}
+      {isExpanded && (
+        <div
+          className="pin-theater-overlay"
+          onClick={() => setIsExpanded(false)}
+        >
+          {/* Top Bar with Title and Actions */}
+          <div className="pin-theater-top-bar" onClick={(e) => e.stopPropagation()}>
+            <div className="pin-theater-info">
+              <h3 className="pin-theater-title">{pin.title || 'Foto de Olivia'}</h3>
+              <span className="pin-theater-badge">
+                {albumLabel ? `Álbum: ${albumLabel}` : 'Galería general'}
+              </span>
+            </div>
+
+            <div className="pin-theater-actions">
+              <button
+                className="btn-icon pin-theater-btn"
+                onClick={() => setIsZoomed(!isZoomed)}
+                title={isZoomed ? "Ajustar foto a la pantalla" : "Ver tamaño 100% original"}
+              >
+                {isZoomed ? <ZoomOut size={16} /> : <ZoomIn size={16} />}
+              </button>
+              <button
+                className="btn-icon pin-theater-btn"
+                onClick={() => onShare(pin)}
+                title="Compartir foto"
+              >
+                <Share2 size={16} />
+              </button>
+              <button
+                className="btn-icon pin-theater-btn"
+                onClick={handleDownload}
+                title="Descargar foto"
+              >
+                <Download size={16} />
+              </button>
+              <button
+                className={`btn-icon pin-theater-btn ${isLiked ? 'liked' : ''}`}
+                onClick={handleLike}
+                style={{
+                  background: isLiked ? 'var(--accent-rose)' : undefined,
+                  color: isLiked ? '#fff' : undefined
+                }}
+                title="Me gusta"
+              >
+                <Heart size={16} fill={isLiked ? "currentColor" : "none"} />
+              </button>
+              <button
+                className="btn-icon pin-theater-btn pin-theater-close"
+                onClick={() => setIsExpanded(false)}
+                title="Volver a la ventana normal (Esc)"
+              >
+                <Minimize2 size={16} />
+              </button>
+            </div>
+          </div>
+
+          {/* Center Image Container fitted to screen */}
+          <div
+            className={`pin-theater-image-wrapper ${isZoomed ? 'zoomed' : ''}`}
+            onClick={() => setIsExpanded(false)}
+          >
+            <img
+              src={pin.imageUrl}
+              alt={pin.title}
+              className={`pin-theater-img ${isZoomed ? 'zoomed' : ''}`}
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsZoomed(!isZoomed);
+              }}
+              title={isZoomed ? "Clic para ajustar a la pantalla" : "Clic para ver tamaño 100% original"}
+            />
+          </div>
+
+          {/* Bottom hint bar */}
+          <div className="pin-theater-bottom-hint" onClick={(e) => e.stopPropagation()}>
+            <span>
+              {isZoomed 
+                ? '🔍 Tamaño original • Haz clic en la foto para ajustar a la pantalla' 
+                : '✨ Ajustado a la pantalla • Haz clic en la foto para zoom 100% • Esc para volver'}
+            </span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
