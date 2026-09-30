@@ -54,15 +54,32 @@ export default function PinCard({
     onShare(pin);
   };
 
-  const handleDownload = (e) => {
+  const handleDownload = async (e) => {
     e.stopPropagation();
-    const link = document.createElement('a');
-    link.href = pin.imageUrl;
-    link.target = '_blank';
-    link.download = `${pin.title.replace(/\s+/g, '_')}.jpg`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const safeFilename = `${(pin.title || 'olivia_pin').replace(/[^a-zA-Z0-9_\u00C0-\u017F-]/g, '_')}.jpg`;
+    try {
+      if (pin.imageUrl.startsWith('data:')) {
+        const link = document.createElement('a');
+        link.href = pin.imageUrl;
+        link.download = safeFilename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        return;
+      }
+      const response = await fetch(pin.imageUrl, { mode: 'cors' });
+      const blob = await response.blob();
+      const blobUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.download = safeFilename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+    } catch {
+      window.open(pin.imageUrl, '_blank');
+    }
   };
 
   const handleDelete = (e) => {

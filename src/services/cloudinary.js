@@ -1,4 +1,5 @@
 // Cloudinary Service for Olivia the Cat! IMG
+import { safeStorage } from './storage';
 
 const STORAGE_KEY_CONFIG = 'olivia_cloudinary_config';
 
@@ -11,24 +12,16 @@ const DEFAULT_CONFIG = {
 
 // Retrieve Cloudinary config from localStorage or defaults
 export const getCloudinaryConfig = () => {
-  try {
-    const saved = localStorage.getItem(STORAGE_KEY_CONFIG);
-    if (saved) {
-      return { ...DEFAULT_CONFIG, ...JSON.parse(saved) };
-    }
-  } catch (e) {
-    console.warn("Could not load Cloudinary config from storage", e);
+  const saved = safeStorage.getJSON(STORAGE_KEY_CONFIG, null);
+  if (saved) {
+    return { ...DEFAULT_CONFIG, ...saved };
   }
   return DEFAULT_CONFIG;
 };
 
 // Save updated Cloudinary config
 export const saveCloudinaryConfig = (config) => {
-  try {
-    localStorage.setItem(STORAGE_KEY_CONFIG, JSON.stringify(config));
-  } catch (e) {
-    console.error("Could not save Cloudinary config", e);
-  }
+  safeStorage.setJSON(STORAGE_KEY_CONFIG, config);
 };
 
 // Available default folders

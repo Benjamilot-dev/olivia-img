@@ -18,6 +18,8 @@ import { INITIAL_PINS } from './data/initialPins';
 import { DEFAULT_FOLDERS } from './services/cloudinary';
 import { auth, database, logoutUser } from './firebase/config';
 import { syncUserToDatabase, subscribeUserRole } from './services/userService';
+import { safeStorage, cachePinsSafely } from './services/storage';
+import { compressDataUrl } from './utils/imageCompressor';
 import { onAuthStateChanged } from 'firebase/auth';
 import { ref, onValue, set, update, remove } from 'firebase/database';
 
@@ -64,11 +66,23 @@ export default function App() {
     setConfirmModal((prev) => ({ ...prev, isOpen: false }));
   };
 
+  // Clean up any historical oversized caches on startup
+  useEffect(() => {
+    safeStorage.cleanupHeavyCaches();
+  }, []);
+
   // Pins state
   const [pins, setPins] = useState(() => {
     try {
-      const saved = localStorage.getItem('olivia_pins');
-      return saved ? JSON.parse(saved) : INITIAL_PINS;
+      const saved = safeStorage.getItem('olivia_pins');
+      if (saved) {
+        if (saved.length > 500000 || saved.includes('data:image/')) {
+          safeStorage.removeItem('olivia_pins');
+          return INITIAL_PINS;
+        }
+        return JSON.parse(saved);
+      }
+      return INITIAL_PINS;
     } catch {
       return INITIAL_PINS;
     }
@@ -76,12 +90,8 @@ export default function App() {
 
   // Folders state
   const [folders, setFolders] = useState(() => {
-    try {
-      const saved = localStorage.getItem('olivia_folders');
-      return saved ? JSON.parse(saved) : DEFAULT_FOLDERS;
-    } catch {
-      return DEFAULT_FOLDERS;
-    }
+    const saved = safeStorage.getJSON('olivia_folders', null);
+    return saved && Array.isArray(saved) && saved.length > 0 ? saved : DEFAULT_FOLDERS;
   });
 
   // Filters & Search
@@ -90,19 +100,11 @@ export default function App() {
 
   // Interactivity state
   const [likedPinIds, setLikedPinIds] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('olivia_liked_pins') || '[]');
-    } catch {
-      return [];
-    }
+    return safeStorage.getJSON('olivia_liked_pins', []);
   });
 
   const [savedPinIds, setSavedPinIds] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('olivia_saved_pins') || '[]');
-    } catch {
-      return [];
-    }
+    return safeStorage.getJSON('olivia_saved_pins', []);
   });
 
   // Modals state
@@ -117,27 +119,15 @@ export default function App() {
   // Auth, Roles & Approval state
   const [user, setUser] = useState(null);
   const [isAdmin, setIsAdmin] = useState(() => {
-    try {
-      return localStorage.getItem('olivia_is_admin') === 'true';
-    } catch {
-      return false;
-    }
+    return safeStorage.getItem('olivia_is_admin') === 'true';
   });
   const [userStatus, setUserStatus] = useState(() => {
-    try {
-      return localStorage.getItem('olivia_user_status') || 'pending';
-    } catch {
-      return 'pending';
-    }
+    return safeStorage.getItem('olivia_user_status', 'pending');
   });
   const [isApproved, setIsApproved] = useState(() => {
-    try {
-      const savedAdmin = localStorage.getItem('olivia_is_admin') === 'true';
-      const savedStatus = localStorage.getItem('olivia_user_status');
-      return savedAdmin || savedStatus === 'approved';
-    } catch {
-      return false;
-    }
+    const savedAdmin = safeStorage.getItem('olivia_is_admin') === 'true';
+    const savedStatus = safeStorage.getItem('olivia_user_status');
+    return savedAdmin || savedStatus === 'approved';
   });
 
   // Toasts
@@ -193,25 +183,45 @@ export default function App() {
     try {
       const pinsRef = ref(database, 'pins');
       const unsubscribe = onValue(pinsRef, (snapshot) => {
-        const val = snapshot.val();
-        if (val) {
-          const loadedPins = Object.keys(val).map((k) => ({
-            ...val[k],
-            id: val[k].id || k
-          }));
+        try {
+          const val = snapshot.val();
+          if (val) {
+            const loadedPins = Object.keys(val).map((k) => ({
+              ...val[k],
+              id: val[k].id || k
+            }));
 
-          const existingIds = new Set(loadedPins.map((p) => p.id));
-          const merged = [...loadedPins];
-          INITIAL_PINS.forEach((ip) => {
-            if (!existingIds.has(ip.id)) {
-              merged.push(ip);
-            }
-          });
+            const existingIds = new Set(loadedPins.map((p) => p.id));
+            const merged = [...loadedPins];
+            INITIAL_PINS.forEach((ip) => {
+              if (!existingIds.has(ip.id)) {
+                merged.push(ip);
+              }
+            });
 
-          setPins(merged);
-          localStorage.setItem('olivia_pins', JSON.stringify(merged));
+            setPins(merged);
+            cachePinsSafely(merged);
+
+            // Auto-optimizer for heavy base64 pins (e.g. uploaded before client compression)
+            merged.forEach((pin) => {
+              if (pin.imageUrl && pin.imageUrl.startsWith('data:image/') && pin.imageUrl.length > 400000) {
+                compressDataUrl(pin.imageUrl, { maxWidth: 1200, quality: 0.78 }).then((optimizedUrl) => {
+                  if (optimizedUrl && optimizedUrl.length < pin.imageUrl.length) {
+                    console.info(`[Auto-Optimizer] Recompressed oversized pin "${pin.title}" from ${(pin.imageUrl.length / 1024).toFixed(0)}KB to ${(optimizedUrl.length / 1024).toFixed(0)}KB`);
+                    try {
+                      update(ref(database, `pins/${pin.id}`), { imageUrl: optimizedUrl }).catch(() => {});
+                    } catch {}
+                  }
+                }).catch(() => {});
+              }
+            });
+          }
+        } catch (err) {
+          console.warn("Error processing pins snapshot:", err);
         }
-      }, () => {});
+      }, (error) => {
+        console.warn("RTDB pins listener error:", error);
+      });
 
       return () => unsubscribe();
     } catch (e) {
@@ -224,21 +234,25 @@ export default function App() {
     try {
       const foldersRef = ref(database, 'folders');
       const unsubscribe = onValue(foldersRef, (snapshot) => {
-        const val = snapshot.val();
-        if (val) {
-          let loadedFolders = [];
-          if (Array.isArray(val)) {
-            loadedFolders = val.filter(Boolean);
-          } else if (typeof val === 'object') {
-            loadedFolders = Object.keys(val).map((k) => ({
-              ...val[k],
-              id: val[k].id || k
-            }));
+        try {
+          const val = snapshot.val();
+          if (val) {
+            let loadedFolders = [];
+            if (Array.isArray(val)) {
+              loadedFolders = val.filter(Boolean);
+            } else if (typeof val === 'object') {
+              loadedFolders = Object.keys(val).map((k) => ({
+                ...val[k],
+                id: val[k].id || k
+              }));
+            }
+            if (loadedFolders.length > 0) {
+              setFolders(loadedFolders);
+              safeStorage.setJSON('olivia_folders', loadedFolders);
+            }
           }
-          if (loadedFolders.length > 0) {
-            setFolders(loadedFolders);
-            localStorage.setItem('olivia_folders', JSON.stringify(loadedFolders));
-          }
+        } catch (err) {
+          console.warn("Error processing folders snapshot:", err);
         }
       }, (err) => {
         console.warn("RTDB folders sync error:", err);
@@ -250,37 +264,21 @@ export default function App() {
     }
   }, []);
 
-  // Persistence in localStorage
+  // Safe Persistence in localStorage
   useEffect(() => {
-    try {
-      localStorage.setItem('olivia_pins', JSON.stringify(pins));
-    } catch (e) {
-      console.error(e);
-    }
+    cachePinsSafely(pins);
   }, [pins]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('olivia_folders', JSON.stringify(folders));
-    } catch (e) {
-      console.error(e);
-    }
+    safeStorage.setJSON('olivia_folders', folders);
   }, [folders]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('olivia_liked_pins', JSON.stringify(likedPinIds));
-    } catch (e) {
-      console.error(e);
-    }
+    safeStorage.setJSON('olivia_liked_pins', likedPinIds);
   }, [likedPinIds]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem('olivia_saved_pins', JSON.stringify(savedPinIds));
-    } catch (e) {
-      console.error(e);
-    }
+    safeStorage.setJSON('olivia_saved_pins', savedPinIds);
   }, [savedPinIds]);
 
   // Auth requirement trigger
@@ -772,8 +770,8 @@ export default function App() {
     setIsAdmin(false);
     setIsApproved(false);
     setUserStatus('pending');
-    localStorage.removeItem('olivia_is_admin');
-    localStorage.removeItem('olivia_user_status');
+    safeStorage.removeItem('olivia_is_admin');
+    safeStorage.removeItem('olivia_user_status');
     addToast('Sesión de Google cerrada', 'info');
   };
 
@@ -1093,8 +1091,8 @@ export default function App() {
           addToast(msg || '¡Autenticado con Google con éxito!');
           if (authReason === 'upload') {
             setTimeout(() => {
-              const savedAdmin = localStorage.getItem('olivia_is_admin') === 'true';
-              const savedStatus = localStorage.getItem('olivia_user_status');
+              const savedAdmin = safeStorage.getItem('olivia_is_admin') === 'true';
+              const savedStatus = safeStorage.getItem('olivia_user_status');
               const approvedNow = savedAdmin || savedStatus === 'approved';
               if (approvedNow) {
                 setIsUploadOpen(true);

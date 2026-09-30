@@ -2,6 +2,7 @@ import React, { useState, useRef } from 'react';
 import UserAvatar from './UserAvatar';
 import { X, UploadCloud, Image as ImageIcon, Folder, Tag, AlertCircle, CheckCircle2, Loader2, Sparkles, Cloud, Globe, Lock } from 'lucide-react';
 import { uploadToCloudinary, getCloudinaryConfig } from '../services/cloudinary';
+import { compressImage } from '../utils/imageCompressor';
 
 export default function UploadModal({
   isOpen,
@@ -28,24 +29,36 @@ export default function UploadModal({
 
   if (!isOpen) return null;
 
-  const handleFileChange = (selectedFile) => {
+  const handleFileChange = async (selectedFile) => {
     if (!selectedFile) return;
     if (!selectedFile.type.startsWith('image/')) {
       setErrorMessage('Por favor selecciona un archivo de imagen válido (JPG, PNG, WEBP, etc.)');
       return;
     }
-    setFile(selectedFile);
     setErrorMessage('');
-    const reader = new FileReader();
-    reader.onload = () => {
-      setPreviewUrl(reader.result);
-      if (!title) {
-        // Use clean filename as initial title
-        const name = selectedFile.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
-        setTitle(name.charAt(0).toUpperCase() + name.slice(1));
-      }
-    };
-    reader.readAsDataURL(selectedFile);
+
+    if (!title) {
+      // Use clean filename as initial title
+      const name = selectedFile.name.replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
+      setTitle(name.charAt(0).toUpperCase() + name.slice(1));
+    }
+
+    try {
+      // Compress image client-side to ensure fast uploads and prevent browser storage exhaustion
+      const { file: compressedFile, dataUrl } = await compressImage(selectedFile, {
+        maxWidth: 1400,
+        maxHeight: 1400,
+        quality: 0.82
+      });
+      setFile(compressedFile);
+      setPreviewUrl(dataUrl);
+    } catch (err) {
+      console.warn("Client compression error fallback:", err);
+      setFile(selectedFile);
+      const reader = new FileReader();
+      reader.onload = () => setPreviewUrl(reader.result);
+      reader.readAsDataURL(selectedFile);
+    }
   };
 
   const handleDrop = (e) => {

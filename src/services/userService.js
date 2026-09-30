@@ -1,5 +1,6 @@
 import { ref, get, set, update, remove, onValue } from 'firebase/database';
 import { database } from '../firebase/config';
+import { safeStorage } from './storage';
 
 const STORAGE_ADMIN_KEY = 'olivia_is_admin';
 const STORAGE_STATUS_KEY = 'olivia_user_status';
@@ -70,14 +71,14 @@ export const syncUserToDatabase = async (user) => {
     const isAdmin = role === 'admin';
     const isApproved = isAdmin || status === 'approved';
 
-    localStorage.setItem(STORAGE_ADMIN_KEY, isAdmin ? 'true' : 'false');
-    localStorage.setItem(STORAGE_STATUS_KEY, status);
+    safeStorage.setItem(STORAGE_ADMIN_KEY, isAdmin ? 'true' : 'false');
+    safeStorage.setItem(STORAGE_STATUS_KEY, status);
 
     return { role, status, isAdmin, isApproved };
   } catch (error) {
     console.warn("User database sync warning:", error.message);
-    const savedAdmin = localStorage.getItem(STORAGE_ADMIN_KEY) === 'true';
-    const savedStatus = localStorage.getItem(STORAGE_STATUS_KEY) || (savedAdmin ? 'approved' : 'pending');
+    const savedAdmin = safeStorage.getItem(STORAGE_ADMIN_KEY) === 'true';
+    const savedStatus = safeStorage.getItem(STORAGE_STATUS_KEY) || (savedAdmin ? 'approved' : 'pending');
     return {
       role: savedAdmin ? 'admin' : 'user',
       status: savedStatus,
@@ -95,17 +96,21 @@ export const subscribeUserRole = (uid, onRoleChange) => {
   try {
     const userRef = ref(database, `users/${uid}`);
     const unsubscribe = onValue(userRef, (snapshot) => {
-      if (snapshot.exists()) {
-        const data = snapshot.val();
-        const role = data.role || 'user';
-        const status = role === 'admin' ? 'approved' : (data.status || 'pending');
-        const isAdmin = role === 'admin';
-        const isApproved = isAdmin || status === 'approved';
+      try {
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+          const role = data.role || 'user';
+          const status = role === 'admin' ? 'approved' : (data.status || 'pending');
+          const isAdmin = role === 'admin';
+          const isApproved = isAdmin || status === 'approved';
 
-        localStorage.setItem(STORAGE_ADMIN_KEY, isAdmin ? 'true' : 'false');
-        localStorage.setItem(STORAGE_STATUS_KEY, status);
+          safeStorage.setItem(STORAGE_ADMIN_KEY, isAdmin ? 'true' : 'false');
+          safeStorage.setItem(STORAGE_STATUS_KEY, status);
 
-        onRoleChange({ role, status, isAdmin, isApproved });
+          onRoleChange({ role, status, isAdmin, isApproved });
+        }
+      } catch (err) {
+        console.warn("Error processing user role update:", err);
       }
     });
     return unsubscribe;
