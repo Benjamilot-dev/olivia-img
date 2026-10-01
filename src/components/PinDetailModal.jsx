@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { isSafeUrl, sanitizeText, sanitizeComment, safeOpenUrl } from '../utils/security';
+import { checkRateLimit, recordAction } from '../utils/rateLimiter';
 
 export default function PinDetailModal({
   pin,
@@ -43,6 +44,7 @@ export default function PinDetailModal({
   onEditPin
 }) {
   const [newComment, setNewComment] = useState('');
+  const [commentWarning, setCommentWarning] = useState('');
   const [isExpanded, setIsExpanded] = useState(false);
   const [isZoomed, setIsZoomed] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
@@ -111,6 +113,20 @@ export default function PinDetailModal({
     e.preventDefault();
     if (!newComment.trim()) return;
 
+    // Rate Limiting (Anti-Flood / Anti-Spam)
+    const rateKey = 'comment_' + (user?.uid || 'guest');
+    const rateCheck = checkRateLimit(rateKey, {
+      minIntervalMs: 2500,
+      maxPerWindow: 6,
+      windowMs: 60000
+    });
+
+    if (!rateCheck.allowed) {
+      setCommentWarning(rateCheck.message);
+      setTimeout(() => setCommentWarning(''), 3500);
+      return;
+    }
+
     const commentObj = sanitizeComment({
       id: 'c_' + Date.now(),
       author: user?.displayName || (user?.email ? user.email.split('@')[0] : 'Invitado Michi'),
@@ -120,7 +136,9 @@ export default function PinDetailModal({
     });
 
     onAddComment(pin.id, commentObj);
+    recordAction(rateKey);
     setNewComment('');
+    setCommentWarning('');
   };
 
   const handleDownload = async () => {
@@ -443,7 +461,20 @@ export default function PinDetailModal({
               )}
             </div>
 
-            {/* Add Comment Input */}
+            {/* Add Comment Input & Rate Limit Warning */}
+            {commentWarning && (
+              <div style={{
+                color: '#f59e0b',
+                fontSize: '0.74rem',
+                fontWeight: 600,
+                background: 'rgba(245, 158, 11, 0.12)',
+                padding: '4px 10px',
+                borderRadius: '8px',
+                marginBottom: '6px'
+              }}>
+                {commentWarning}
+              </div>
+            )}
             <form onSubmit={handleCommentSubmit} style={{ display: 'flex', gap: '6px', marginTop: 'auto' }}>
               <input
                 type="text"

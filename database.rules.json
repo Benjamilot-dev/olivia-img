@@ -1,6 +1,34 @@
 {
   "rules": {
-    ".read": true,
-    ".write": true
+    "pins": {
+      ".read": true,
+      "$pinId": {
+        // Allow write if user is Admin, or if creating/editing their own pin, or if updating likes/comments
+        ".write": "auth != null ? (root.child('users').child(auth.uid).child('role').val() === 'admin' || (!data.exists() && newData.child('authorUid').val() === auth.uid) || (data.child('authorUid').val() === auth.uid) || newData.hasChildren(['likesCount']) || newData.hasChildren(['comments'])) : true",
+        ".validate": "newData.hasChildren(['title', 'imageUrl']) && newData.child('title').isString() && newData.child('title').val().length <= 140 && newData.child('imageUrl').isString()"
+      }
+    },
+    "users": {
+      // Authenticated users can read directory
+      ".read": "auth != null",
+      "$uid": {
+        // Can only write own profile or if Admin
+        ".write": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin')",
+        // Prevent user from self-promoting role to 'admin' unless already admin or it's the very first user
+        "role": {
+          ".validate": "newData.val() === 'admin' ? (data.val() === 'admin' || root.child('users').child(auth.uid).child('role').val() === 'admin' || !root.child('users').exists()) : newData.val() === 'user'"
+        }
+      }
+    },
+    "folders": {
+      ".read": true,
+      // Only Admin or initial setup can modify folders
+      ".write": "auth != null && (root.child('users').child(auth.uid).child('role').val() === 'admin' || !data.exists())"
+    },
+    "deleted_pins": {
+      ".read": true,
+      // Only authenticated users or admin can record deleted pins
+      ".write": "auth != null"
+    }
   }
 }

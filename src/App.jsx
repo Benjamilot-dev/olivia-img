@@ -158,19 +158,11 @@ export default function App() {
   const [editingFolder, setEditingFolder] = useState(null);
   const [editingPin, setEditingPin] = useState(null);
 
-  // Auth, Roles & Approval state
+  // Auth, Roles & Approval state (Security: Default to unprivileged until verified by Firebase Auth)
   const [user, setUser] = useState(null);
-  const [isAdmin, setIsAdmin] = useState(() => {
-    return safeStorage.getItem('olivia_is_admin') === 'true';
-  });
-  const [userStatus, setUserStatus] = useState(() => {
-    return safeStorage.getItem('olivia_user_status', 'pending');
-  });
-  const [isApproved, setIsApproved] = useState(() => {
-    const savedAdmin = safeStorage.getItem('olivia_is_admin') === 'true';
-    const savedStatus = safeStorage.getItem('olivia_user_status');
-    return savedAdmin || savedStatus === 'approved';
-  });
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [userStatus, setUserStatus] = useState('pending');
+  const [isApproved, setIsApproved] = useState(false);
 
   // Toasts
   const [toasts, setToasts] = useState([]);

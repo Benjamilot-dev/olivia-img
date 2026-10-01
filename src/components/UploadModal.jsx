@@ -4,6 +4,7 @@ import { X, UploadCloud, Image as ImageIcon, Folder, Tag, AlertCircle, CheckCirc
 import { uploadToCloudinary, getCloudinaryConfig } from '../services/cloudinary';
 import { compressImage } from '../utils/imageCompressor';
 import { sanitizePin } from '../utils/security';
+import { checkRateLimit, recordAction } from '../utils/rateLimiter';
 
 export default function UploadModal({
   isOpen,
@@ -32,10 +33,24 @@ export default function UploadModal({
 
   const handleFileChange = async (selectedFile) => {
     if (!selectedFile) return;
-    if (!selectedFile.type.startsWith('image/')) {
-      setErrorMessage('Por favor selecciona un archivo de imagen válido (JPG, PNG, WEBP, etc.)');
+
+    // Security check 1: File size <= 15 MB
+    const MAX_FILE_SIZE = 15 * 1024 * 1024;
+    if (selectedFile.size > MAX_FILE_SIZE) {
+      setErrorMessage('El archivo excede el tamaño máximo permitido de 15 MB.');
       return;
     }
+
+    // Security check 2: Strict allowed MIME types (no SVG or non-image files)
+    const ALLOWED_MIMES = new Set(['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif', 'image/avif']);
+    const fileType = (selectedFile.type || '').toLowerCase();
+    const isSvg = fileType === 'image/svg+xml' || selectedFile.name.toLowerCase().endsWith('.svg');
+
+    if (isSvg || !ALLOWED_MIMES.has(fileType)) {
+      setErrorMessage('Por seguridad solo se admiten imágenes raster (JPG, PNG, WEBP, GIF, AVIF). Archivos SVG no permitidos.');
+      return;
+    }
+
     setErrorMessage('');
 
     if (!title) {
@@ -78,6 +93,17 @@ export default function UploadModal({
     }
     if (!title.trim()) {
       setErrorMessage('Por favor ingresa un título para el pin de Olivia.');
+      return;
+    }
+
+    // Rate Limiting Check (Anti-Flood)
+    const rateCheck = checkRateLimit('upload_' + (user?.uid || 'user'), {
+      minIntervalMs: 3500,
+      maxPerWindow: 8,
+      windowMs: 180000
+    });
+    if (!rateCheck.allowed) {
+      setErrorMessage(rateCheck.message);
       return;
     }
 
@@ -140,6 +166,7 @@ export default function UploadModal({
 
       const newPin = sanitizePin(rawPin);
       onPinCreated(newPin);
+      recordAction('upload_' + (user?.uid || 'user'));
       setIsUploading(false);
       onClose();
       // Reset form

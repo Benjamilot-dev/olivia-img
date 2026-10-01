@@ -15,6 +15,16 @@ export async function compressImage(file, { maxWidth = 1400, maxHeight = 1400, q
       return reject(new Error('No se proporcionó ningún archivo para comprimir.'));
     }
 
+    // Size limit: 20MB
+    if (file.size > 20 * 1024 * 1024) {
+      return reject(new Error('El archivo excede el tamaño máximo permitido de 20 MB.'));
+    }
+
+    // Explicitly reject SVG to prevent embedded script execution
+    if (file.type === 'image/svg+xml' || (file.name && file.name.toLowerCase().endsWith('.svg'))) {
+      return reject(new Error('Los archivos SVG no están permitidos por políticas de seguridad.'));
+    }
+
     // If not an image, resolve with original
     if (file.type && !file.type.startsWith('image/')) {
       return resolve({ file, dataUrl: null, width: 0, height: 0, sizeBytes: file.size });
